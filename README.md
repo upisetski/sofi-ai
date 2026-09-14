@@ -1,6 +1,17 @@
 # Sofi — Development Environment
 
-Sofi is an AI assistant for Viber. This PR bootstraps the local development environment and keeps it aligned with the planned Railway deployment.
+Sofi is an AI assistant for Viber. This repository bootstraps the local development environment and keeps it aligned with the planned Railway deployment.
+
+## Project knowledge
+
+Before making non-trivial changes, read:
+
+- [Agent instructions](AGENTS.md)
+- [Product context](docs/product.md)
+- [Architecture](docs/architecture.md)
+- [Architecture decisions](docs/decisions/)
+
+These documents are the repository source of truth for product and engineering context. They are intentionally initial versions and should evolve with the project.
 
 ## Stack
 
@@ -15,7 +26,7 @@ Sofi is an AI assistant for Viber. This PR bootstraps the local development envi
 - Dockerfile for production / Railway
 - GitHub Actions CI
 
-PostgreSQL is included as a local development service, but database schema, ORM, migrations, Redis/BullMQ and application persistence are deliberately deferred to subsequent PRs.
+PostgreSQL is included as a local development service, but database schema, ORM, migrations, Redis/BullMQ and application persistence are deliberately deferred to focused feature PRs.
 
 ## Requirements
 
@@ -98,7 +109,7 @@ src/
   server.ts
 ```
 
-The structure will grow by feature in subsequent PRs. Avoid creating infrastructure abstractions before they are needed by an actual feature.
+The structure grows by feature in subsequent PRs. Avoid creating infrastructure abstractions before they are needed by an actual feature.
 
 ## Docker
 
@@ -165,7 +176,7 @@ SENTRY_DSN=...
 
 ## Deliberately deferred
 
-This bootstrap PR does **not** implement:
+This bootstrap does not implement:
 
 - Viber API/webhook logic
 - PostgreSQL schema or ORM
@@ -181,4 +192,4 @@ This bootstrap PR does **not** implement:
 - analytics
 - rate limiting
 
-Those should be introduced in focused follow-up PRs as the corresponding application features are implemented.
+Those are introduced in focused follow-up PRs as the corresponding application features are implemented.
