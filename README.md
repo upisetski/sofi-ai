@@ -2,6 +2,70 @@
 
 Sofi is an AI assistant for Viber. The MVP is intentionally small: Node.js + TypeScript + Fastify, PostgreSQL, OpenRouter, asynchronous processing via a PostgreSQL-backed job queue, Sentry, and cost/rate protection.
 
+## Development quick start
+
+### Requirements
+
+- Node.js 24 LTS
+- npm 11+
+- Docker Desktop / Docker Engine with Compose
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Start PostgreSQL
+
+```bash
+docker compose up -d postgres
+```
+
+### 3. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+The local database URL in `.env.example` is already configured for the Docker Compose database.
+
+### 4. Apply the current schema
+
+```bash
+npm run db:push
+```
+
+For tracked production migrations, use `npm run db:generate` and `npm run db:migrate` once the schema starts evolving.
+
+### 5. Start the API
+
+```bash
+npm run dev
+```
+
+Health check:
+
+```bash
+curl http://localhost:3000/health
+```
+
+Expected response:
+
+```json
+{ "status": "ok" }
+```
+
+### Useful commands
+
+```bash
+npm run typecheck
+npm run lint
+npm run format:check
+npm test
+npm run build
+```
+
 ## 1. Product goal
 
 Validate two hypotheses:
@@ -14,7 +78,7 @@ Build for simplicity, low cost, and fast iteration — not hypothetical scale.
 ## 2. Stack
 
 ### Backend
-- Node.js
+- Node.js 24 LTS
 - TypeScript
 - Fastify
 
@@ -81,6 +145,14 @@ events
 ```
 
 No Redis is required at MVP stage.
+
+### ORM / migrations
+**Drizzle ORM + Drizzle Kit**
+
+Drizzle provides typed SQL access without hiding PostgreSQL behind a heavy abstraction. Drizzle Kit is used for schema generation/migrations.
+
+### Local development
+**Docker Compose** runs PostgreSQL only. The Node.js app runs directly on the host for fast reloads and debugging.
 
 ### Observability
 - **Pino** for structured application logs
@@ -489,10 +561,12 @@ MVP:
 Railway Project
 │
 ├── app
-│   └── Node.js + Fastify
+│   └── Node.js + Fastify (Dockerfile)
 │
-└── PostgreSQL
+└── PostgreSQL (Railway managed service)
 ```
+
+Railway should build the application from the repository's root `Dockerfile`. GitHub is the source of truth for deployments.
 
 Why Railway:
 - GitHub-based deploys
