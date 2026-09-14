@@ -15,7 +15,7 @@ const viberUserSchema = z.object({
 
 const callbackBaseSchema = z.object({
   timestamp: z.number().int().nonnegative(),
-  message_token: z.number().int().nonnegative().optional(),
+  message_token: z.string().min(1).optional(),
 });
 
 const locationSchema = z.object({
@@ -97,43 +97,43 @@ export const viberMessageSchema = z.discriminatedUnion('type', [
 
 const webhookCallbackSchema = callbackBaseSchema.extend({
   event: z.literal('webhook'),
-  message_token: z.number().int().nonnegative(),
+  message_token: z.string().min(1),
 });
 
 const deliveredCallbackSchema = callbackBaseSchema.extend({
   event: z.literal('delivered'),
-  message_token: z.number().int().nonnegative(),
+  message_token: z.string().min(1),
   user_id: z.string().min(1),
 });
 
 const seenCallbackSchema = callbackBaseSchema.extend({
   event: z.literal('seen'),
-  message_token: z.number().int().nonnegative(),
+  message_token: z.string().min(1),
   user_id: z.string().min(1),
 });
 
 const failedCallbackSchema = callbackBaseSchema.extend({
   event: z.literal('failed'),
-  message_token: z.number().int().nonnegative(),
+  message_token: z.string().min(1),
   user_id: z.string().min(1),
   desc: z.string(),
 });
 
 const subscribedCallbackSchema = callbackBaseSchema.extend({
   event: z.literal('subscribed'),
-  message_token: z.number().int().nonnegative(),
+  message_token: z.string().min(1),
   user: viberUserSchema,
 });
 
 const unsubscribedCallbackSchema = callbackBaseSchema.extend({
   event: z.literal('unsubscribed'),
-  message_token: z.number().int().nonnegative(),
+  message_token: z.string().min(1),
   user_id: z.string().min(1),
 });
 
 const conversationStartedCallbackSchema = callbackBaseSchema.extend({
   event: z.literal('conversation_started'),
-  message_token: z.number().int().nonnegative(),
+  message_token: z.string().min(1),
   type: z.literal('open'),
   context: z.string().optional(),
   user: viberUserSchema,
@@ -142,7 +142,7 @@ const conversationStartedCallbackSchema = callbackBaseSchema.extend({
 
 const messageCallbackSchema = callbackBaseSchema.extend({
   event: z.literal('message'),
-  message_token: z.number().int().nonnegative(),
+  message_token: z.string().min(1),
   sender: viberUserSchema,
   message: viberMessageSchema,
 });
