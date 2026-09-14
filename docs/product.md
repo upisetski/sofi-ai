@@ -17,24 +17,28 @@ Users should be able to send a message or a photo without learning commands.
 ## Initial capabilities
 
 ### Write
+
 - write a message
 - write a greeting
 - write an email
 - formulate a reply
 
 ### Rewrite
+
 - make it shorter
 - make it warmer
 - make it less formal
 - make it clearer
 
 ### Explain
+
 - explain a concept simply
 - explain a message
 - summarize something
 - clarify what a text means
 
 ### Ideas
+
 - gift ideas
 - names
 - plans
@@ -42,12 +46,14 @@ Users should be able to send a message or a photo without learning commands.
 - suggestions
 
 ### Vision
+
 - read text from a photo
 - understand a screenshot
 - explain what is shown
 - read an instruction or announcement
 
 ### Web
+
 Use web search when the user needs current information such as current prices, news, rules, opening hours, or other time-sensitive facts.
 
 Do not use web search when current information is unnecessary.
