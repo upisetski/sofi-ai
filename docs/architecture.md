@@ -185,12 +185,15 @@ Belarusian personal-data requirements must be validated separately before public
 ## Observability
 
 ### Pino
+
 Structured application logs. Do not log sensitive user content.
 
 ### Sentry
+
 Runtime and integration error monitoring.
 
 ### Product analytics
+
 Store product events and AI usage metadata in PostgreSQL initially.
 
 ## Admin / dashboard
@@ -216,16 +219,19 @@ PostgreSQL will be added as a Railway managed service when the database layer is
 ## Evolution path
 
 ### Stage 0
+
 - one Node.js application
 - PostgreSQL
 - OpenRouter
 
 ### Stage 1
+
 - real user analytics
 - stronger rate/budget controls
 - PostgreSQL-backed jobs
 
 ### Stage 2
+
 Only if required:
 - Redis
 - BullMQ
@@ -233,6 +239,7 @@ Only if required:
 - object storage
 
 ### Stage 3
+
 Only if required:
 - infrastructure monitoring stack
 - dedicated analytics store
