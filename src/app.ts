@@ -2,17 +2,20 @@ import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 
 export function buildApp() {
-  const app = Fastify({
-    logger: {
-      transport:
-        process.env.NODE_ENV === 'production'
-          ? undefined
-          : {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  const app = Fastify(
+    isProduction
+      ? { logger: true }
+      : {
+          logger: {
+            transport: {
               target: 'pino-pretty',
               options: { colorize: true },
             },
-    },
-  });
+          },
+        },
+  );
 
   app.register(helmet);
 
