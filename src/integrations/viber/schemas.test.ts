@@ -9,7 +9,7 @@ describe('Viber callback schemas', () => {
       {
         event: 'webhook',
         timestamp: 1457764197627,
-        message_token: 241256543215,
+        message_token: '241256543215',
       },
     ],
     [
@@ -17,7 +17,7 @@ describe('Viber callback schemas', () => {
       {
         event: 'delivered',
         timestamp: 1457764197627,
-        message_token: 491266184665523145,
+        message_token: '491266184665523145',
         user_id: '01234567890A=',
       },
     ],
@@ -26,7 +26,7 @@ describe('Viber callback schemas', () => {
       {
         event: 'seen',
         timestamp: 1457764197627,
-        message_token: 491266184665523145,
+        message_token: '491266184665523145',
         user_id: '01234567890A=',
       },
     ],
@@ -35,7 +35,7 @@ describe('Viber callback schemas', () => {
       {
         event: 'failed',
         timestamp: 1457764197627,
-        message_token: 491266184665523145,
+        message_token: '491266184665523145',
         user_id: '01234567890A=',
         desc: 'failure description',
       },
@@ -45,7 +45,7 @@ describe('Viber callback schemas', () => {
       {
         event: 'subscribed',
         timestamp: 1457764197627,
-        message_token: 491266184665523145,
+        message_token: '491266184665523145',
         user: {
           id: '01234567890A=',
           name: 'John McClane',
@@ -62,7 +62,7 @@ describe('Viber callback schemas', () => {
         event: 'unsubscribed',
         timestamp: 1457764197627,
         user_id: '01234567890A=',
-        message_token: 491266184665523145,
+        message_token: '491266184665523145',
       },
     ],
     [
@@ -70,7 +70,7 @@ describe('Viber callback schemas', () => {
       {
         event: 'conversation_started',
         timestamp: 1457764197627,
-        message_token: 491266184665523145,
+        message_token: '491266184665523145',
         type: 'open',
         context: 'context information',
         user: {
@@ -89,7 +89,7 @@ describe('Viber callback schemas', () => {
       {
         event: 'message',
         timestamp: 1457764197627,
-        message_token: 491266184665523145,
+        message_token: '491266184665523145',
         sender: {
           id: '01234567890A=',
           name: 'John McClane',
