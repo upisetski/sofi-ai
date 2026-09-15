@@ -39,7 +39,13 @@ export async function handleViberWebhook(
     return;
   }
 
-  if (!verifyViberSignature(body, typeof signature === 'string' ? signature : undefined, authToken)) {
+  if (
+    !verifyViberSignature(
+      body,
+      typeof signature === 'string' ? signature : undefined,
+      authToken,
+    )
+  ) {
     request.log.warn('Invalid Viber webhook signature');
     await reply.code(400).send();
     return;
@@ -49,14 +55,26 @@ export async function handleViberWebhook(
   try {
     payload = JSON.parse(body);
   } catch (error) {
-    request.log.warn({ error: error instanceof Error ? error.message : 'unknown error' }, 'Invalid Viber webhook JSON');
+    request.log.warn(
+      { error: error instanceof Error ? error.message : 'unknown error' },
+      'Invalid Viber webhook JSON',
+    );
     await reply.code(400).send();
     return;
   }
 
   const result = viberCallbackSchema.safeParse(payload);
   if (!result.success) {
-    request.log.warn({ issues: result.error.issues.map(({ code, message, path }) => ({ code, message, path })) }, 'Invalid Viber webhook payload');
+    request.log.warn(
+      {
+        issues: result.error.issues.map(({ code, message, path }) => ({
+          code,
+          message,
+          path,
+        })),
+      },
+      'Invalid Viber webhook payload',
+    );
     await reply.code(400).send();
     return;
   }
