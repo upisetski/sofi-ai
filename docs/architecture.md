@@ -11,32 +11,82 @@ The MVP architecture should be:
 
 We optimize for learning speed, not hypothetical scale.
 
+## Application structure and business-logic boundaries
+
+The application uses a small layered structure. The layers have explicit responsibilities:
+
+```text
+src/
+  integrations/       external-system adapters (Viber, OpenRouter, etc.)
+  application/        business use cases and orchestration
+  localization/       user-facing translated copy and locale selection
+  domain/              shared business rules/types when complexity justifies them
+  config/              environment/configuration
+```
+
+### Integrations
+
+Integration code translates external protocols into application-facing operations and performs external I/O.
+
+Examples:
+- Viber webhook signature verification and callback parsing
+- Viber `send_message` API client
+- OpenRouter client
+
+Integration code must not decide product behavior such as which welcome text to send or which business rule applies.
+
+### Application
+
+Application code contains business logic and use cases.
+
+Examples:
+- deciding what should happen for `conversation_started`
+- selecting the appropriate user-facing operation
+- applying product/rate/budget rules
+- orchestrating calls to integrations
+
+Application code should depend on small integration interfaces rather than provider-specific HTTP details.
+
+### Localization
+
+Localization owns:
+- supported locales
+- locale fallback rules
+- user-facing translated strings
+
+Business logic may request a localized message but must not embed translated copy in webhook handlers or provider adapters.
+
+### Domain
+
+Use `src/domain/` for reusable business rules/types once a feature has domain complexity. Do not create domain abstractions speculatively.
+
+### Configuration
+
+Environment variables and runtime configuration belong in `src/config/`. Secrets must never be hard-coded.
+
 ## High-level architecture
 
 ```text
                          VIBER
                            |
-                         webhook
                            v
-                 Node.js + Fastify
+                 integrations/viber
                            |
-              +------------+------------+
-              |                         |
-              v                         v
-        PostgreSQL                  AI Router
-              |                         |
-        jobs / data          +----------+----------+
-                             |          |          |
-                            text      vision      web
-                             |          |          |
-                             +----------+----------+
-                                        |
-                                   OpenRouter
-                                        |
-                                       Viber
-
-                    Sentry + Pino
+                           v
+                    application
+                           |
+                 +---------+---------+
+                 |                   |
+           localization          AI Router
+                 |                   |
+                 +---------+---------+
+                           |
+                       providers
 ```
+
+The rule is:
+
+> External adapters translate protocols. Application services decide behavior. Localization supplies user-facing language.
 
 ## Runtime
 
@@ -51,28 +101,16 @@ Viber
   |
   | POST /viber/webhook
   v
-validate callback
+integration: verify + parse callback
   |
-save inbound message
+application: handle use case
   |
-create job
+integration: send_message / persistence / AI
   |
 HTTP 200
-  |
-background worker
-  |
-rate/budget guard
-  |
-AI Router
-  |
-OpenRouter / web / vision
-  |
-persist result + cost
-  |
-send response to Viber
 ```
 
-The webhook should acknowledge quickly. AI generation is asynchronous.
+Webhook handlers should be thin. They validate the external request, call an application use case, and translate the result back to the transport protocol. They must not contain product decisions or user-facing copy.
 
 ## Background jobs
 

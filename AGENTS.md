@@ -54,19 +54,20 @@ For every new feature:
 5. Verify external integration contracts before coding against them.
 6. Keep the implementation narrowly scoped to the feature specification.
 7. Prefer the simplest implementation that satisfies the acceptance criteria; avoid speculative abstractions and infrastructure.
-8. Add or update tests for behavior that changed.
-9. Update durable product or architecture documentation only when the feature changes those facts or decisions.
-10. Add an ADR in docs/decisions/ when a significant architectural decision is made or changed.
-11. Run the full local checks:
+8. Put business rules in the application layer, not in transport/integration handlers.
+9. Add or update tests for behavior that changed.
+10. Update durable product or architecture documentation only when the feature changes those facts or decisions.
+11. Add an ADR in docs/decisions/ when a significant architectural decision is made or changed.
+12. Run the full local checks:
    - npm run typecheck
    - npm run lint
    - npm run format:check
    - npm test
    - npm run build
    - docker build -t sofi-ai:ci .
-12. Create a focused branch and PR containing one coherent feature.
-13. In the PR, summarize the feature, link its feature specification, and describe testing and any documentation/ADR changes.
-14. Do not merge unless CI passes.
+13. Create a focused branch and PR containing one coherent feature.
+14. In the PR, summarize the feature, link its feature specification, and describe testing and any documentation/ADR changes.
+15. Do not merge unless CI passes.
 
 ### Feature specification rules
 
@@ -82,7 +83,9 @@ For every new feature:
 - TypeScript strict mode is required.
 - Validate external inputs at system boundaries.
 - Prefer small, focused modules.
-- Keep business logic separate from provider-specific API code.
+- Keep business rules in application/use-case modules.
+- Keep provider-specific HTTP/API details in integrations.
+- Keep user-facing translated strings in localization.
 - Do not put secrets in source control.
 - Do not log full user messages, images, or credentials.
 - Do not invent external API behavior. Verify integration contracts before coding.
