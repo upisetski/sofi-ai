@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+import { welcomeMessage } from './welcome.js';
 import { viberCallbackSchema } from './schemas.js';
 
 const signatureHeader = 'x-viber-content-signature';
@@ -83,6 +84,12 @@ export async function handleViberWebhook(
 
   try {
     request.log.debug({ event: result.data.event }, 'Viber webhook received');
+
+    if (result.data.event === 'conversation_started') {
+      await reply.code(200).send(welcomeMessage);
+      return;
+    }
+
     await reply.code(200).send();
   } catch (error) {
     request.log.error(error, 'Failed to acknowledge Viber webhook');
