@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
 import { buildApp } from './app.js';
+import { welcomeMessage } from './integrations/viber/welcome.js';
 
 const authToken = 'test-viber-auth-token';
 
@@ -72,6 +73,36 @@ describe('Viber webhook', () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.body).toBe('');
+
+    await app.close();
+  });
+
+  it('returns the Russian welcome message for conversation_started', async () => {
+    process.env.VIBER_AUTH_TOKEN = authToken;
+    const app = buildApp();
+    const body = JSON.stringify({
+      event: 'conversation_started',
+      timestamp: 1457764197627,
+      message_token: 241256543215,
+      type: 'open',
+      user: {
+        id: '01234567890A==',
+      },
+      subscribed: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/viber/webhook',
+      headers: {
+        'content-type': 'application/json',
+        'x-viber-content-signature': sign(body),
+      },
+      payload: body,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(welcomeMessage);
 
     await app.close();
   });
