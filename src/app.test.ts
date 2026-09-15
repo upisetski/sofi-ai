@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildApp } from './app.js';
-import { getWelcomeText, resolveLocale } from './localization/index.js';
+import { getWelcome, getWelcomeText, resolveLocale } from './localization/index.js';
 
 const authToken = 'test-viber-auth-token';
 
@@ -39,7 +39,10 @@ describe('localization', () => {
     expect(resolveLocale('de')).toBe('ru');
   });
 
-  it('returns localized welcome copy', () => {
+  it('localizes both sender name and welcome text', () => {
+    expect(getWelcome('ru').senderName).toBe('Софи - AI-помощница');
+    expect(getWelcome('be').senderName).toBe('Сафі - AI-памочніца');
+    expect(getWelcome('en').senderName).toBe('Sofi - AI assistant');
     expect(getWelcomeText('ru')).toContain('Я Софи');
     expect(getWelcomeText('be')).toContain('Я Сафі');
     expect(getWelcomeText('en')).toContain('Sofi');
@@ -113,9 +116,9 @@ describe('Viber webhook', () => {
     expect(request?.[0]).toBe('https://chatapi.viber.com/pa/send_message');
     expect(JSON.parse(String(request?.[1]?.body))).toEqual({
       receiver: '01234567890A==',
-      sender: { name: 'Sofi' },
+      sender: { name: getWelcome('be').senderName },
       type: 'text',
-      text: getWelcomeText('be'),
+      text: getWelcome('be').welcome,
     });
 
     vi.unstubAllGlobals();
