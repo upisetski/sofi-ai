@@ -7,7 +7,6 @@ import { createViberClient } from './client.js';
 import { viberCallbackSchema } from './schemas.js';
 
 const signatureHeader = 'x-viber-content-signature';
-const senderName = 'Sofi';
 
 export function verifyViberSignature(
   body: string,
@@ -66,7 +65,7 @@ export async function handleViberWebhook(
     request.log.debug({ event: result.data.event }, 'Viber webhook received');
 
     if (result.data.event === 'conversation_started') {
-      const client = createViberClient({ authToken, senderName });
+      const client = createViberClient({ authToken });
       await handleConversationStarted(client, {
         userId: result.data.user.id,
         language: result.data.user.language,
