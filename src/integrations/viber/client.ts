@@ -1,5 +1,3 @@
-import type { SupportedLocale } from '../../localization/index.js';
-
 export interface ViberClient {
   sendTextMessage(input: { receiver: string; text: string }): Promise<void>;
 }
@@ -41,5 +39,3 @@ export function createViberClient(input: {
     },
   };
 }
-
-export type { SupportedLocale };
