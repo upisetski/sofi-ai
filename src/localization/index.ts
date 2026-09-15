@@ -4,8 +4,12 @@ import { ru } from './locales/ru.js';
 
 export const supportedLocales = ['ru', 'be', 'en'] as const;
 export type SupportedLocale = (typeof supportedLocales)[number];
+export interface LocalizedWelcome {
+  senderName: string;
+  welcome: string;
+}
 
-const locales: Record<SupportedLocale, { welcome: string }> = {
+const locales: Record<SupportedLocale, LocalizedWelcome> = {
   ru,
   be: belarusian,
   en: english,
@@ -19,6 +23,10 @@ export function resolveLocale(language: string | undefined): SupportedLocale {
   return 'ru';
 }
 
+export function getWelcome(language: string | undefined): LocalizedWelcome {
+  return locales[resolveLocale(language)];
+}
+
 export function getWelcomeText(language: string | undefined): string {
-  return locales[resolveLocale(language)].welcome;
+  return getWelcome(language).welcome;
 }
