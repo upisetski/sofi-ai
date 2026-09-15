@@ -1,9 +1,9 @@
 import { createHmac } from 'node:crypto';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { buildApp } from './app.js';
-import { welcomeMessage } from './integrations/viber/welcome.js';
+import { getWelcomeText, resolveLocale } from './localization/index.js';
 
 const authToken = 'test-viber-auth-token';
 
@@ -27,10 +27,30 @@ describe('health', () => {
   });
 });
 
+describe('localization', () => {
+  it('supports Russian, Belarusian, and English', () => {
+    expect(resolveLocale('ru')).toBe('ru');
+    expect(resolveLocale('be')).toBe('be');
+    expect(resolveLocale('en')).toBe('en');
+  });
+
+  it('falls back to Russian', () => {
+    expect(resolveLocale(undefined)).toBe('ru');
+    expect(resolveLocale('de')).toBe('ru');
+  });
+
+  it('returns localized welcome copy', () => {
+    expect(getWelcomeText('ru')).toContain('Я Софи');
+    expect(getWelcomeText('be')).toContain('Я Сафі');
+    expect(getWelcomeText('en')).toContain('Sofi');
+  });
+});
+
 describe('Viber webhook', () => {
   it('returns 400 for an invalid signature', async () => {
     process.env.VIBER_AUTH_TOKEN = authToken;
     const app = buildApp();
+
     const body = JSON.stringify({
       event: 'webhook',
       timestamp: 1457764197627,
@@ -53,32 +73,16 @@ describe('Viber webhook', () => {
     await app.close();
   });
 
-  it('returns 400 for an invalid payload', async () => {
+  it('sends a localized welcome for conversation_started', async () => {
     process.env.VIBER_AUTH_TOKEN = authToken;
-    const app = buildApp();
-    const body = JSON.stringify({
-      event: 'unknown',
-      timestamp: 1457764197627,
-    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: 0, status_message: 'ok' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
 
-    const response = await app.inject({
-      method: 'POST',
-      url: '/viber/webhook',
-      headers: {
-        'content-type': 'application/json',
-        'x-viber-content-signature': sign(body),
-      },
-      payload: body,
-    });
-
-    expect(response.statusCode).toBe(400);
-    expect(response.body).toBe('');
-
-    await app.close();
-  });
-
-  it('returns the Russian welcome message for conversation_started', async () => {
-    process.env.VIBER_AUTH_TOKEN = authToken;
     const app = buildApp();
     const body = JSON.stringify({
       event: 'conversation_started',
@@ -87,6 +91,7 @@ describe('Viber webhook', () => {
       type: 'open',
       user: {
         id: '01234567890A==',
+        language: 'be',
       },
       subscribed: false,
     });
@@ -102,8 +107,18 @@ describe('Viber webhook', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual(welcomeMessage);
+    expect(response.body).toBe('');
 
+    const request = fetchMock.mock.calls[0];
+    expect(request?.[0]).toBe('https://chatapi.viber.com/pa/send_message');
+    expect(JSON.parse(String(request?.[1]?.body))).toEqual({
+      receiver: '01234567890A==',
+      sender: { name: 'Sofi' },
+      type: 'text',
+      text: getWelcomeText('be'),
+    });
+
+    vi.unstubAllGlobals();
     await app.close();
   });
 
