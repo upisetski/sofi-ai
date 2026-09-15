@@ -1,13 +1,16 @@
 export interface ViberClient {
-  sendTextMessage(input: { receiver: string; text: string }): Promise<void>;
+  sendTextMessage(input: {
+    receiver: string;
+    senderName: string;
+    text: string;
+  }): Promise<void>;
 }
 
 export function createViberClient(input: {
   authToken: string;
-  senderName: string;
 }): ViberClient {
   return {
-    async sendTextMessage({ receiver, text }) {
+    async sendTextMessage({ receiver, senderName, text }) {
       const response = await fetch('https://chatapi.viber.com/pa/send_message', {
         method: 'POST',
         headers: {
@@ -16,7 +19,7 @@ export function createViberClient(input: {
         },
         body: JSON.stringify({
           receiver,
-          sender: { name: input.senderName },
+          sender: { name: senderName },
           type: 'text',
           text,
         }),
