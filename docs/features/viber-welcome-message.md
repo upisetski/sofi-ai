@@ -6,13 +6,13 @@ Send Sofi's localized welcome message when a user opens a one-to-one conversatio
 
 ## User behavior
 
-When Viber sends a `conversation_started` callback, Sofi sends a welcome text to the user using the language reported by Viber.
+When Viber sends a `conversation_started` callback, Sofi sends a welcome text to the user using the language reported by Viber. The Viber sender name is localized together with the welcome copy.
 
 Supported languages:
 
-- `ru` — Russian
-- `be` — Belarusian
-- `en` — English
+- `ru` — sender `Софи - AI-помощница`
+- `be` — sender `Сафі - AI-памочніца`
+- `en` — sender `Sofi - AI assistant`
 
 Unknown or missing languages fall back to Russian.
 
@@ -21,9 +21,9 @@ Unknown or missing languages fall back to Russian.
 ### In scope
 
 - Handle Viber `conversation_started` in the application layer.
-- Select a localized welcome message using `user.language`.
+- Select localized sender name and welcome message using `user.language`.
 - Send the message through the Viber integration client.
-- Keep all user-facing welcome copy in localization files.
+- Keep all user-facing welcome copy and sender names in localization files.
 - Keep the webhook thin: validate, invoke the use case, acknowledge the callback.
 
 ### Out of scope
@@ -36,21 +36,21 @@ Unknown or missing languages fall back to Russian.
 
 ## Requirements
 
-- Russian, Belarusian, and English welcome messages must exist as separate locale resources.
+- Russian, Belarusian, and English sender names and welcome messages must exist as separate locale resources.
 - Business behavior must not be implemented in the Fastify webhook handler.
 - Provider-specific HTTP details must remain in the Viber integration client.
-- The welcome text must not be duplicated in integration or webhook code.
+- The sender name and welcome text must not be duplicated in integration or webhook code.
 - The Viber `conversation_started` callback must be followed by the required outbound `send_message` call.
-- Unknown or missing Viber language values fall back to Russian.
+- Unknown or missing language values fall back to Russian.
 - The implementation must not log the user's full message or personal content.
 
 ## Acceptance criteria
 
-- [ ] `conversation_started.user.language = ru` sends the Russian welcome.
-- [ ] `conversation_started.user.language = be` sends the Belarusian welcome.
-- [ ] `conversation_started.user.language = en` sends the English welcome.
-- [ ] Missing or unsupported language sends the Russian welcome.
-- [ ] Webhook code contains no welcome copy or locale selection rules.
+- [ ] `conversation_started.user.language = ru` sends the Russian sender name and welcome.
+- [ ] `conversation_started.user.language = be` sends the Belarusian sender name and welcome.
+- [ ] `conversation_started.user.language = en` sends the English sender name and welcome.
+- [ ] Missing or unsupported language sends the Russian sender name and welcome.
+- [ ] Webhook code contains no welcome copy, sender name, or locale selection rules.
 - [ ] Tests cover locale selection, application behavior, and the Viber outbound request boundary.
 
 ## Architecture
@@ -61,12 +61,12 @@ The flow is:
 Viber webhook
   -> integration validation/parsing
   -> application welcome use case
-  -> localization resolver
+  -> localization resolver (sender + text)
   -> Viber integration client
   -> Viber send_message API
 ```
 
-Business rules belong in `src/application/`. Provider-specific HTTP belongs in `src/integrations/`. Translated user-facing strings belong in `src/localization/`.
+Business rules belong in `src/application/`. Provider-specific HTTP belongs in `src/integrations/`. Translated user-facing strings, including sender names, belong in `src/localization/`.
 
 ## Data and privacy
 
@@ -80,7 +80,7 @@ Use the existing structured webhook logging. Do not log the complete Viber user 
 
 - Unit: locale resolution and welcome application behavior.
 - Integration: Viber client sends the expected `send_message` request.
-- E2E / manual: open the bot conversation with supported device languages and verify the corresponding welcome appears.
+- E2E / manual: open the bot conversation with supported device languages and verify the corresponding sender name and welcome appear.
 
 ## Dependencies
 
