@@ -8,7 +8,7 @@ const envSchema = z.object({
     .default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   HOST: z.string().default('0.0.0.0'),
-  DATABASE_URL: z.string().min(1),
+  DATABASE_URL: z.string().min(1).optional(),
   VIBER_AUTH_TOKEN: z.string().min(1),
   OPENROUTER_API_KEY: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
