@@ -2,19 +2,19 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
-import { welcomeMessage } from './welcome.js';
+import { handleConversationStarted } from '../../application/welcome-handler.js';
+import { createViberClient } from './client.js';
 import { viberCallbackSchema } from './schemas.js';
 
 const signatureHeader = 'x-viber-content-signature';
+const senderName = 'Sofi';
 
 export function verifyViberSignature(
   body: string,
   signature: string | undefined,
   authToken: string,
 ): boolean {
-  if (!signature) {
-    return false;
-  }
+  if (!signature) return false;
 
   const expected = createHmac('sha256', authToken).update(body).digest('hex');
   const providedBuffer = Buffer.from(signature, 'utf8');
@@ -40,44 +40,24 @@ export async function handleViberWebhook(
     return;
   }
 
-  if (
-    !verifyViberSignature(
-      body,
-      typeof signature === 'string' ? signature : undefined,
-      authToken,
-    )
-  ) {
+  if (!verifyViberSignature(body, typeof signature === 'string' ? signature : undefined, authToken)) {
     request.log.warn('Invalid Viber webhook signature');
     await reply.code(400).send();
     return;
   }
 
   let payload: unknown;
-
   try {
     payload = JSON.parse(body);
   } catch (error) {
-    request.log.warn(
-      { error: error instanceof Error ? error.message : 'unknown error' },
-      'Invalid Viber webhook JSON',
-    );
+    request.log.warn({ error: error instanceof Error ? error.message : 'unknown error' }, 'Invalid Viber webhook JSON');
     await reply.code(400).send();
     return;
   }
 
   const result = viberCallbackSchema.safeParse(payload);
-
   if (!result.success) {
-    request.log.warn(
-      {
-        issues: result.error.issues.map(({ code, message, path }) => ({
-          code,
-          message,
-          path,
-        })),
-      },
-      'Invalid Viber webhook payload',
-    );
+    request.log.warn({ issues: result.error.issues.map(({ code, message, path }) => ({ code, message, path })) }, 'Invalid Viber webhook payload');
     await reply.code(400).send();
     return;
   }
@@ -86,13 +66,16 @@ export async function handleViberWebhook(
     request.log.debug({ event: result.data.event }, 'Viber webhook received');
 
     if (result.data.event === 'conversation_started') {
-      await reply.code(200).send(welcomeMessage);
-      return;
+      const client = createViberClient({ authToken, senderName });
+      await handleConversationStarted(client, {
+        userId: result.data.user.id,
+        language: result.data.user.language,
+      });
     }
 
     await reply.code(200).send();
   } catch (error) {
-    request.log.error(error, 'Failed to acknowledge Viber webhook');
+    request.log.error(error, 'Failed to process Viber webhook');
     await reply.code(500).send();
   }
 }
