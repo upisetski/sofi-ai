@@ -45,22 +45,37 @@ Do not introduce new infrastructure unless a concrete requirement or measured bo
 
 ## Development workflow
 
-For non-trivial work:
+For every new feature:
 
-1. Read `AGENTS.md`, `docs/product.md`, and `docs/architecture.md`.
-2. Inspect the existing implementation before making assumptions.
-3. Keep the change narrowly scoped to the requested issue.
-4. Prefer a small implementation over speculative abstraction.
-5. Add or update tests for behavior that changed.
-6. Run the full local checks:
-   - `npm run typecheck`
-   - `npm run lint`
-   - `npm run format:check`
-   - `npm test`
-   - `npm run build`
-   - `docker build -t sofi-ai:ci .`
-7. Create a focused branch and PR.
-8. Do not merge unless CI passes.
+1. Read AGENTS.md, docs/product.md, and docs/architecture.md.
+2. Create a feature specification from docs/features/_template.md at docs/features/<feature-name>.md.
+3. Define the smallest useful scope and explicit acceptance criteria before implementation.
+4. Inspect the existing implementation and relevant tests before making assumptions.
+5. Verify external integration contracts before coding against them.
+6. Keep the implementation narrowly scoped to the feature specification.
+7. Prefer the simplest implementation that satisfies the acceptance criteria; avoid speculative abstractions and infrastructure.
+8. Add or update tests for behavior that changed.
+9. Update durable product or architecture documentation only when the feature changes those facts or decisions.
+10. Add an ADR in docs/decisions/ when a significant architectural decision is made or changed.
+11. Run the full local checks:
+   - npm run typecheck
+   - npm run lint
+   - npm run format:check
+   - npm test
+   - npm run build
+   - docker build -t sofi-ai:ci .
+12. Create a focused branch and PR containing one coherent feature.
+13. In the PR, summarize the feature, link its feature specification, and describe testing and any documentation/ADR changes.
+14. Do not merge unless CI passes.
+
+### Feature specification rules
+
+- The feature specification is the source of truth for the feature during implementation.
+- Keep it short and concrete; document requirements and acceptance criteria, not speculative designs.
+- Record both in-scope and explicitly out-of-scope behavior.
+- Include privacy/data handling, observability, testing expectations, dependencies, and open questions when relevant.
+- After the feature is merged, keep the specification as the durable record of what was built. Do not turn it into a second architecture document.
+- If implementation reveals a material scope change, update the feature specification before completing the PR.
 
 ## Code quality
 
@@ -80,10 +95,10 @@ All AI provider calls go through the internal AI Router.
 Application code should not hard-code a specific model/provider in business logic.
 
 Use route classes such as:
-- `cheap_text`
-- `strong_text`
-- `vision`
-- `web`
+- cheap_text
+- strong_text
+- vision
+- web
 
 ## Data and privacy
 
@@ -127,7 +142,7 @@ Do not weaken CI just to make a PR green.
 
 Update documentation when a durable product or architecture decision changes.
 
-Use ADRs in `docs/decisions/` for decisions that are likely to matter later.
+Use ADRs in docs/decisions/ for decisions that are likely to matter later.
 
 Keep documentation factual and current. Do not document hypothetical systems as if they already exist.
 
