@@ -3,7 +3,11 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildApp } from './app.js';
-import { getWelcome, getWelcomeText, resolveLocale } from './localization/index.js';
+import {
+  getWelcome,
+  getWelcomeText,
+  resolveLocale,
+} from './localization/index.js';
 
 const authToken = 'test-viber-auth-token';
 
