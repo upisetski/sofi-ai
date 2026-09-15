@@ -6,9 +6,7 @@ export interface ViberClient {
   }): Promise<void>;
 }
 
-export function createViberClient(input: {
-  authToken: string;
-}): ViberClient {
+export function createViberClient(input: { authToken: string }): ViberClient {
   return {
     async sendTextMessage({ receiver, senderName, text }) {
       const response = await fetch('https://chatapi.viber.com/pa/send_message', {
@@ -26,7 +24,9 @@ export function createViberClient(input: {
       });
 
       if (!response.ok) {
-        throw new Error(`Viber send_message failed with HTTP ${response.status}`);
+        throw new Error(
+          'Viber send_message failed with HTTP ' + response.status,
+        );
       }
 
       const payload = (await response.json()) as {
@@ -36,7 +36,8 @@ export function createViberClient(input: {
 
       if (payload.status !== 0) {
         throw new Error(
-          `Viber send_message failed: ${payload.status_message ?? 'unknown error'}`,
+          'Viber send_message failed: ' +
+            (payload.status_message ?? 'unknown error'),
         );
       }
     },
