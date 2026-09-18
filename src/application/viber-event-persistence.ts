@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
 
 import { withTransaction, type Db } from '../db/client.js';
-import type { ViberCallback, ViberMessage } from '../integrations/viber/schemas.js';
+import type { ViberCallback } from '../integrations/viber/schemas.js';
 
 const provider = 'viber';
 const jobType = 'process_conversation';
@@ -31,9 +31,6 @@ function getUser(callback: ViberCallback): {
   return null;
 }
 
-function getMessageContent(message: ViberMessage): string | null {
-  return message.type === 'text' ? message.text : null;
-}
 
 function getEventType(callback: ViberCallback): string {
   switch (callback.event) {
