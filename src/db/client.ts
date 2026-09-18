@@ -1,17 +1,15 @@
 import { Pool, type PoolClient } from 'pg';
 
-import { env } from '../config/env.js';
-
 export type Db = Pool;
 
-export function createDb(databaseUrl = env.DATABASE_URL): Pool {
+export function createDb(databaseUrl = process.env.DATABASE_URL): Pool {
   if (!databaseUrl) {
     throw new Error('DATABASE_URL is required for database operations');
   }
 
   return new Pool({
     connectionString: databaseUrl,
-    max: env.NODE_ENV === 'test' ? 4 : 10,
+    max: process.env.NODE_ENV === 'test' ? 4 : 10,
   });
 }
 
