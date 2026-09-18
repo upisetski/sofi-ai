@@ -39,10 +39,7 @@ export function buildApp(options: AppOptions = {}) {
 
   app.post(
     '/viber/webhook',
-    createViberWebhookHandler({
-      db: options.db,
-      reorderDelayMs: options.reorderDelayMs,
-    }),
+    createViberWebhookHandler(options),
   );
 
   return app;
