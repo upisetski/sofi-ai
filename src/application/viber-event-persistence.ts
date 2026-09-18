@@ -162,40 +162,6 @@ export async function acceptViberCallback(
       [nextPosition, conversation.id],
     );
 
-    if (callback.event === 'message') {
-      const content = getMessageContent(callback.message);
-      if (content !== null) {
-        await client.query(
-          `
-            INSERT INTO messages (conversation_id, role, content, event_id, position)
-            VALUES ($1, 'user', $2, $3, $4)
-            ON CONFLICT (event_id) DO NOTHING
-          `,
-          [conversation.id, content, insertedEvent.id, nextPosition],
-        );
-      }
-    }
-
-    if (callback.event === 'subscribed') {
-      await client.query(
-        `
-          UPDATE conversations
-          SET subscription_status = 'subscribed', updated_at = NOW()
-          WHERE id = $1
-        `,
-        [conversation.id],
-      );
-    } else if (callback.event === 'unsubscribed') {
-      await client.query(
-        `
-          UPDATE conversations
-          SET subscription_status = 'unsubscribed', updated_at = NOW()
-          WHERE id = $1
-        `,
-        [conversation.id],
-      );
-    }
-
     await wakeJob(client, conversation.id, reorderDelayMs, receivedAt);
 
     return {
