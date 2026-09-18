@@ -6,15 +6,15 @@ Accepted
 
 ## Context
 
-Sofi receives user messages and lifecycle events from Viber through a webhook. The webhook must remain fast and reliable, while the actual conversation processing may be asynchronous and can involve AI requests that take several seconds.
+Sofi receives user messages and lifecycle events from Viber through a webhook. The webhook must remain fast and reliable, while actual conversation processing may be asynchronous and can involve AI requests that take several seconds.
 
-The system needs to preserve the order in which events are accepted by Sofi, tolerate duplicate provider deliveries, recover from worker failures, maintain current conversation state, respect subscription state, and allow users to send several short messages before Sofi responds.
+The system needs to preserve conversation order, tolerate duplicate provider deliveries, recover from worker failures, maintain current conversation state, and keep provider transport concerns separate from application behavior.
 
-The MVP already uses PostgreSQL as its persistent store and as the durable job queue. Introducing Redis, BullMQ, or another messaging system only for conversation ordering would add infrastructure without a current product requirement.
+The MVP already uses PostgreSQL as its persistent store and durable job queue. Introducing Redis, BullMQ, or another messaging system only for conversation ordering would add infrastructure without a current product requirement.
 
 ## Decision
 
-Sofi will treat incoming Viber callbacks as a durable, ordered conversation event stream backed by PostgreSQL.
+Sofi will treat incoming Viber callbacks as a durable conversation event stream backed by PostgreSQL.
 
 ### 1. Persist before acknowledging
 
@@ -28,75 +28,55 @@ The webhook performs only transport-level work:
 
 AI processing and other long-running work must not happen inside the webhook request.
 
-An inbound event is considered accepted only after it is durably persisted. This allows the webhook to acknowledge the provider while the actual processing continues asynchronously.
+An inbound event is considered accepted only after it is durably persisted.
 
 ### 2. Deduplicate provider deliveries
 
-Inbound events are stored with the provider's callback/message token when one is available.
+Inbound events are stored with the provider's callback identifier when one is available.
 
 A database uniqueness constraint prevents the same provider event from being inserted more than once. Duplicate deliveries are treated as successful no-ops and still receive the normal webhook acknowledgement.
 
-The application therefore uses at-least-once delivery semantics with database-backed deduplication rather than relying on exactly-once delivery from the provider.
+The application therefore uses at-least-once inbound delivery semantics with database-backed deduplication.
 
-### 3. Assign a conversation-local position
+### 3. Separate acceptance order from processing order
 
-Each conversation maintains its last accepted event position.
+Every accepted event receives a conversation-local position. The position identifies the durable stream record and provides a deterministic database identity for processing state; it is not treated as the provider's chronological order.
 
-When an inbound event is inserted, the application obtains a row lock on the conversation, assigns the next position, stores the event, and advances the conversation projection in the same transaction.
+Processing order is determined by:
 
-For example:
+1. Viber `timestamp` ascending
+2. event ID ascending as a deterministic tie-breaker
 
-- event A -> position 18
-- event B -> position 19
-- event C -> position 20
+Webhook receipt time is stored separately for diagnostics and operational analysis.
 
-This position represents the order in which Sofi accepted the events. It is not treated as a provider-generated sequence number.
+Because callbacks can arrive out of order, newly accepted events are given a small configurable reordering delay before processing. This delay is intentionally separate from message debounce: it exists only to reduce incorrect ordering caused by callback delivery order.
+
+If an event arrives after processing has already advanced past its provider timestamp, the event remains durable and the late-order condition is observable. The system does not silently rewrite already processed state.
 
 ### 4. Process one conversation sequentially
 
 At most one conversation processor may actively process a conversation at a time.
 
-Workers use PostgreSQL locking/state to serialize processing for the same conversation while allowing unrelated conversations to be processed concurrently.
+Workers use PostgreSQL locking/state to serialize processing for the same conversation while allowing unrelated conversations to process concurrently.
 
-Processing follows the conversation's accepted event positions and never relies on concurrent AI requests for the same conversation.
+The processor never performs concurrent AI requests for the same conversation.
 
-### 5. Coalesce rapid messages into turns
+### 5. Keep durable history separate from current state
 
-User messages are not necessarily processed one-by-one.
+Durable inbound events and messages are historical records.
 
-A configurable debounce period is applied after a new user message. Additional messages received during the debounce window extend the window and are grouped into the same conversation turn.
-
-A maximum turn delay prevents an active user from being deferred indefinitely.
-
-For the MVP, a turn does **not** need its own database table. It can be represented by the range of unprocessed conversation positions that is selected when a processing job runs.
-
-Example:
-
-- message A arrives
-- message B arrives shortly afterwards
-- message C arrives shortly afterwards
-- quiet period expires
-- A+B+C are selected and processed as one logical turn
-
-This reduces unnecessary AI requests and better matches natural chat behavior without introducing another persistence model prematurely.
-
-### 6. Keep durable history separate from current state
-
-Durable inbound events and messages are the historical source of truth.
-
-The conversation record is a current-state projection containing only the state needed for processing and fast decisions, such as:
+The conversation record is a current-state projection containing only state needed for processing and fast decisions, such as:
 
 - subscription status
 - locale
 - last accepted position
 - last processed position
-- debounce state
 - processing state
-- conversation summary, if needed by the AI context
+- conversation summary, if later required
 
-The AI context is constructed from the current conversation summary, a bounded set of recent messages, and the current turn. Unbounded conversation history is not sent to the model.
+The AI context is constructed from bounded recent messages and the current processing unit. Unbounded conversation history is not sent to the model.
 
-### 7. Subscription state participates in processing
+### 6. Subscription state participates in processing
 
 Subscription and unsubscription events are part of the ordered conversation stream.
 
@@ -104,69 +84,66 @@ Before creating an outbound response, the processor checks the current subscript
 
 The implementation must preserve the distinction between a conversation-start event and an actual subscription state change.
 
-### 8. Use PostgreSQL jobs for recovery
+### 7. Use PostgreSQL jobs for recovery
 
 Conversation processing is driven by the existing PostgreSQL-backed job queue.
 
-A job such as `process_conversation` can be retried after a worker failure. The processor determines work from durable conversation state and unprocessed events rather than relying on in-memory queues.
+A `process_conversation` job can be retried after a worker failure. The processor determines work from durable conversation state and unprocessed events rather than relying on an in-memory queue.
 
 The transaction boundary must never remain open while waiting for an AI provider or Viber API call.
 
-### 9. Accept at-least-once outbound semantics
+### 8. Accept at-least-once outbound semantics
 
 Sofi cannot guarantee exactly-once delivery to Viber across a process crash between an external send and the corresponding database commit.
 
-Outbound processing therefore remains at-least-once/best-effort. Rare duplicate outbound messages after a crash are an accepted limitation of the MVP architecture.
-
-The system must make outbound state and retries observable so that this behavior can be revisited if it becomes a material product problem.
+Outbound processing therefore remains at-least-once/best-effort. Outbound state and retries must be observable.
 
 ## MVP data model
 
-The first implementation intentionally uses only five tables:
+The first implementation intentionally uses only five tables.
 
 ### `users`
 
 Stores the provider identity of a person independently from conversations.
 
-- `id` — internal identifier; keeps provider identifiers out of internal primary-key relationships.
-- `provider` — provider name, initially `viber`; allows future integrations without changing the user identity model.
-- `provider_user_id` — external provider user ID used to associate callbacks and send messages.
+- `id` — internal identifier.
+- `provider` — provider name, initially `viber`.
+- `provider_user_id` — external provider user ID.
 - `created_at`, `updated_at` — lifecycle timestamps.
 
-A unique constraint on `(provider, provider_user_id)` prevents duplicate users for the same provider identity.
+Unique constraint: `(provider, provider_user_id)`.
 
 ### `conversations`
 
-Stores the current processing state for a conversation.
+Stores current conversation and processing state.
 
 - `id` — internal conversation identifier.
-- `user_id` — reference to the owning user.
-- `status` — conversation lifecycle state, kept separate from subscription state.
-- `subscription_status` — current ability to send, for example `unknown`, `subscribed`, or `unsubscribed`.
-- `locale` — current locale used for localized responses and AI context.
-- `last_event_position` — highest position accepted into the conversation stream.
-- `last_processed_position` — highest position fully processed; the difference exposes pending work.
-- `debounce_until` — earliest time a pending message batch should be processed.
-- `processing_state` — small coordination/observability state such as `idle` or `processing`.
-- `summary` — optional compact conversation context; recent messages remain the source for detailed history.
+- `user_id` — owning user.
+- `status` — conversation lifecycle state.
+- `subscription_status` — current ability to send, independently from lifecycle.
+- `locale` — current locale.
+- `last_event_position` — highest durable stream position accepted.
+- `last_processed_position` — highest position fully processed.
+- `processing_state` — worker coordination state.
+- `summary` — optional compact context, if needed later.
 - `created_at`, `updated_at` — lifecycle timestamps.
 
 ### `conversation_events`
 
-Stores every accepted inbound callback as durable history and provides the ordered stream.
+Stores every accepted inbound callback.
 
-- `id` — internal event identifier.
-- `conversation_id` — conversation to which the event belongs.
-- `provider` — source provider, initially `viber`.
-- `event_type` — callback type such as `conversation_started`, `subscribed`, `unsubscribed`, or `message`.
-- `provider_event_id` — provider identifier used for deduplication when available; for Viber messages this can be the message token.
-- `position` — Sofi-assigned conversation-local order.
-- `occurred_at` — provider event time, useful for diagnostics but not used for ordering.
+- `id` — internal event identifier and deterministic tie-breaker.
+- `conversation_id` — conversation stream.
+- `provider` — initially `viber`.
+- `event_type` — supported callback type.
+- `provider_event_id` — provider identifier used for deduplication.
+- `position` — conversation-local accepted position.
+- `occurred_at` — Viber callback `timestamp`.
 - `received_at` — time Sofi received the callback.
-- `payload` — validated original callback payload for replay/debugging and future migrations.
+- `payload` — validated original callback payload.
 - `created_at` — database record timestamp.
 
-Uniqueness on the provider event identifier prevents duplicate inbound processing.
+A unique provider-event constraint prevents duplicate inbound processing.
 
 ### `messages`
 
@@ -174,29 +151,29 @@ Stores the conversation content needed by processing and AI context construction
 
 - `id` — internal message identifier.
 - `conversation_id` — owning conversation.
-- `role` — initially `user` or `assistant`; can be extended later if needed.
-- `content` — message text/content used for conversation context.
-- `event_id` — reference to the inbound event that produced the message, when applicable.
-- `position` — conversation position for efficient ordered message retrieval.
-- `created_at` — message timestamp.
+- `role` — initially `user`.
+- `content` — normalized content required by processing.
+- `event_id` — source event.
+- `position` — corresponding conversation event position.
+- `created_at` — persistence timestamp.
 
-For the initial implementation, this is a simple content projection rather than a separate event-sourcing mechanism.
+A unique constraint on `event_id` prevents duplicate message projection.
 
 ### `jobs`
 
-Provides durable asynchronous processing using the existing PostgreSQL job-queue decision.
+Provides durable asynchronous processing.
 
 - `id` — job identifier.
 - `type` — initially `process_conversation`.
-- `conversation_id` — conversation the job wakes/processes.
+- `conversation_id` — conversation to process.
 - `status` — pending, processing, completed, or failed.
-- `available_at` — when the job becomes eligible; this also supports debounce delays.
-- `locked_at` — worker claim timestamp for recovery of stale jobs.
+- `available_at` — earliest processing time.
+- `locked_at` — worker claim timestamp.
 - `attempts` — retry count.
-- `last_error` — most recent failure information for diagnostics.
-- `created_at`, `completed_at` — job lifecycle timestamps.
+- `last_error` — latest failure diagnostics.
+- `created_at`, `completed_at` — lifecycle timestamps.
 
-The first implementation does **not** add `conversation_turns` or a dedicated outbound-delivery event table. Those can be introduced when a concrete requirement justifies them.
+The webhook persists the event and creates or wakes the conversation job transactionally.
 
 ## Consequences
 
@@ -204,20 +181,19 @@ The first implementation does **not** add `conversation_turns` or a dedicated ou
 
 - Webhook latency is independent of AI latency.
 - Provider retries do not create duplicate inbound work.
-- Conversation processing remains ordered and recoverable.
-- Several rapid user messages can be handled as one AI turn.
-- Current conversation state is explicit and queryable.
-- One PostgreSQL system provides persistence, deduplication, ordering, and jobs.
-- The MVP data model stays small and can evolve when actual requirements appear.
-- The worker can later be moved to a separate process or service without changing the conversation model.
+- Conversation processing is sequential and recoverable.
+- Chronological provider timestamps are respected where the event has not already been processed.
+- One PostgreSQL system provides persistence, deduplication, ordering metadata, and jobs.
+- The data model stays small.
+- Debounce can be added later without coupling it to webhook ingestion.
 
 ### Negative
 
 - PostgreSQL locking and transactions become part of the concurrency model.
-- The system must distinguish historical events from current conversation state.
+- Out-of-order delivery requires a small reordering delay.
+- Very late events cannot safely rewrite already processed state automatically.
 - Exactly-once outbound delivery is not guaranteed.
-- Debounce introduces intentional response latency.
-- A stale or late provider event can be accepted after a newer event because provider ordering is not our sequence source.
+- Debounce remains a separate source of intentional response latency when implemented.
 
 ## Rejected alternatives
 
@@ -229,28 +205,35 @@ Rejected because AI work can be slow and provider retries could otherwise create
 
 Rejected because PostgreSQL is already the durable store and job queue, and current scale does not justify another stateful infrastructure component.
 
-### Fire one AI job per message
+### Use receipt time as event order
 
-Rejected because natural chat messages often arrive as several short messages that should be interpreted together.
+Rejected because network delivery order is not the same as the provider event timestamp order.
 
-### Rely on provider timestamps for ordering
+### Treat the local event position as chronological order
 
-Rejected because timestamps do not provide a database-enforced, conversation-local ordering guarantee.
+Rejected because the position reflects durable acceptance order. Provider `timestamp` is the chronological ordering signal.
 
 ### Hold a database transaction open during AI processing
 
 Rejected because long-running external calls would hold locks and reduce database availability and concurrency.
 
+### Add a conversation-turn table now
+
+Rejected because debounce/coalescing is a separate feature and does not yet require its own persistence model.
+
 ## Implementation notes
 
-Implementation should be split into small feature PRs rather than one large persistence/processing change. The first code iteration should cover only:
+Implementation should be split into small feature PRs.
+
+The first code iteration covers:
 
 1. `users` and `conversations` persistence
 2. `conversation_events` persistence and deduplication
 3. conversation-local positions
 4. `messages` projection for inbound user messages
 5. `jobs` integration for waking conversation processing
+6. ordered event selection and per-conversation serialization
 
-The next iteration can add the actual sequential processor and debounce behavior on top of these primitives. AI generation and outbound delivery should build on this foundation rather than coupling transport handling directly to provider calls.
+A later feature will add message debounce/coalescing on top of these primitives.
 
 Do not introduce `conversation_turns`, Redis, BullMQ, or additional delivery infrastructure until a concrete requirement requires them.
