@@ -20,8 +20,8 @@ src/
   integrations/       external-system adapters (Viber, OpenRouter, etc.)
   application/        business use cases and orchestration
   localization/       user-facing translated copy and locale selection
-  domain/              shared business rules/types when complexity justifies them
-  config/              environment/configuration
+  domain/             shared business rules/types when complexity justifies them
+  config/             environment/configuration
 ```
 
 ### Integrations
@@ -96,21 +96,37 @@ Fastify is used for the Viber webhook, health check, and future API/admin endpoi
 
 ## Viber request flow
 
+The webhook acknowledges only after the callback has been durably accepted:
+
 ```text
 Viber
   |
   | POST /viber/webhook
   v
-integration: verify + parse callback
+verify + parse + validate
   |
-application: handle use case
+  v
+PostgreSQL transaction
+  |-- upsert user
+  |-- resolve conversation
+  |-- insert/deduplicate event
+  |-- create or wake processing job
   |
-integration: send_message / persistence / AI
-  |
+  v
 HTTP 200
+  |
+  v
+conversation worker
+  |
+  |-- select events by Viber timestamp
+  |-- serialize processing per conversation
+  |-- update conversation state
+  |-- project inbound messages
+  v
+future: AI / outbound processing
 ```
 
-Webhook handlers should be thin. They validate the external request, call an application use case, and translate the result back to the transport protocol. They must not contain product decisions or user-facing copy.
+Webhook handlers should be thin. They validate the external request, persist it through an application use case, and translate the result back to the transport protocol. They must not perform AI work or contain user-facing product decisions.
 
 ## Background jobs
 
@@ -119,22 +135,48 @@ The MVP uses a PostgreSQL-backed job table rather than Redis/BullMQ.
 A job contains:
 - id
 - type
-- payload
+- conversation_id
 - status
 - attempts
 - available_at
 - locked_at
 - created_at
-- processed_at
-- error
+- completed_at
+- last_error
 
 The worker initially runs in the same Node.js application.
+
+A conversation processing job is created or woken as part of accepting an inbound event. Processing uses PostgreSQL locking so one conversation is handled by at most one worker at a time, while unrelated conversations can run concurrently.
+
+Newly accepted events have a small configurable reordering delay before processing. This delay exists to account for callbacks arriving out of provider timestamp order. It is **not** message debounce.
 
 Move to Redis + BullMQ + dedicated workers only if actual workload makes that worthwhile.
 
 ## Conversations
 
-Conversation context is built from a conversation summary plus recent messages. Do not send unbounded history to the model.
+Conversation processing is backed by five MVP tables:
+
+- `users` — provider identity.
+- `conversations` — current conversation and processing state.
+- `conversation_events` — durable inbound callback history.
+- `messages` — normalized conversation message projection.
+- `jobs` — asynchronous processing and recovery.
+
+For a conversation, each accepted event receives a local position. The position represents durable acceptance order and is not a chronological sequence.
+
+Pending events are processed using:
+
+```text
+ORDER BY occurred_at ASC, id ASC
+```
+
+where `occurred_at` is the Viber callback timestamp and `id` provides deterministic ordering for equal timestamps.
+
+Very late events are retained as durable history and surfaced operationally rather than silently rewriting already processed conversation state.
+
+Conversation context is built from a bounded set of recent messages and the current processing unit. Do not send unbounded history to the model.
+
+Message debounce/coalescing is deliberately a separate feature and does not require a `conversation_turns` table initially.
 
 ## AI Router
 
@@ -191,7 +233,7 @@ Do not persist images by default.
 
 ## Data
 
-PostgreSQL is the planned persistent store for users, conversations, messages, AI requests, jobs, daily usage, and analytics events.
+PostgreSQL is the persistent store for users, conversations, conversation events, messages, jobs, AI requests, daily usage, and analytics events.
 
 The application schema is introduced in feature PRs rather than the initial environment bootstrap.
 
