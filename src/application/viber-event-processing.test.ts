@@ -75,7 +75,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
       new Date('2026-01-01T00:00:01Z'),
       0,
     );
-    await acceptViberCallback(
+    const second = await acceptViberCallback(
       db!,
       message(1000, 'token-2', 'second'),
       new Date('2026-01-01T00:00:02Z'),
@@ -83,9 +83,10 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
     );
 
     const processed = await processConversation(db!, first.conversationId);
-    expect(processed.map((event) => event.id)).toEqual(
-      [...processed].sort((a, b) => Number(a.id) - Number(b.id)).map((event) => event.id),
-    );
+    expect(processed.map((event) => event.id)).toEqual([
+      first.eventId,
+      second.eventId,
+    ]);
   });
 
   it('updates subscription state only when lifecycle events are processed', async () => {
