@@ -15,7 +15,10 @@ export class ConversationWorker {
   private timer: NodeJS.Timeout | undefined;
   private running = false;
 
-  constructor(private readonly db: Pool, options: WorkerOptions = {}) {
+  constructor(
+    private readonly db: Pool,
+    options: WorkerOptions = {},
+  ) {
     this.pollIntervalMs = options.pollIntervalMs ?? 250;
     this.staleAfterMs = options.staleAfterMs ?? 60_000;
   }
