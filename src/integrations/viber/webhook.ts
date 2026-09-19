@@ -37,10 +37,7 @@ export interface ViberWebhookOptions {
 
 export function createViberWebhookHandler(
   options: ViberWebhookOptions = {},
-): (
-  request: FastifyRequest,
-  reply: FastifyReply,
-) => Promise<void> {
+): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
   return async function handleViberWebhook(
     request: FastifyRequest,
     reply: FastifyReply,
@@ -119,10 +116,7 @@ export function createViberWebhookHandler(
         'Viber webhook accepted',
       );
 
-      if (
-        result.data.event === 'conversation_started' &&
-        !accepted.duplicate
-      ) {
+      if (result.data.event === 'conversation_started' && !accepted.duplicate) {
         const client = createViberClient({ authToken });
         await handleConversationStarted(client, {
           userId: result.data.user.id,
