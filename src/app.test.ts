@@ -113,7 +113,9 @@ describe('Viber webhook', () => {
       );
       vi.stubGlobal('fetch', fetchMock);
 
-      const app = buildApp({ db });
+      const testDb = db;
+      if (!testDb) throw new Error('DATABASE_URL is required for this test');
+      const app = buildApp({ db: testDb });
 
       const body = JSON.stringify({
         event: 'conversation_started',
@@ -162,7 +164,9 @@ describe('Viber webhook', () => {
     'deduplicates an already accepted callback',
     async () => {
       process.env.VIBER_AUTH_TOKEN = authToken;
-      const app = buildApp({ db });
+      const testDb = db;
+      if (!testDb) throw new Error('DATABASE_URL is required for this test');
+      const app = buildApp({ db: testDb });
 
       const body = JSON.stringify({
         event: 'message',
