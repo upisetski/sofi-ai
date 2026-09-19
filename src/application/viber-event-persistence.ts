@@ -22,7 +22,10 @@ function getUser(callback: ViberCallback): {
       : { id: callback.sender.id, language: callback.sender.language };
   }
 
-  if (callback.event === 'conversation_started' || callback.event === 'subscribed') {
+  if (
+    callback.event === 'conversation_started' ||
+    callback.event === 'subscribed'
+  ) {
     return callback.user.language === undefined
       ? { id: callback.user.id }
       : { id: callback.user.id, language: callback.user.language };
@@ -35,7 +38,6 @@ function getUser(callback: ViberCallback): {
   return null;
 }
 
-
 function getEventType(callback: ViberCallback): string {
   switch (callback.event) {
     case 'conversation_started':
@@ -44,7 +46,9 @@ function getEventType(callback: ViberCallback): string {
     case 'message':
       return callback.event;
     default:
-      throw new Error('Unsupported Viber event for persistence: ' + callback.event);
+      throw new Error(
+        'Unsupported Viber event for persistence: ' + callback.event,
+      );
   }
 }
 
