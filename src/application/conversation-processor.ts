@@ -45,7 +45,8 @@ export async function processConversation(
         const payload = event.payload as {
           message?: { type?: string; text?: string };
         };
-        const text = payload.message?.type === 'text' ? payload.message.text : null;
+        const text =
+          payload.message?.type === 'text' ? payload.message.text : null;
 
         if (text !== null && text !== undefined) {
           await client.query(
@@ -86,7 +87,9 @@ export async function processConversation(
 
     await client.query(
       `UPDATE conversations
-       SET last_processed_position = $1, processing_state = 'idle', updated_at = NOW()
+       SET last_processed_position = $1,
+           processing_state = 'idle',
+           updated_at = NOW()
        WHERE id = $2`,
       [lastProcessedPosition, conversationId],
     );
