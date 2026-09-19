@@ -1,4 +1,4 @@
-import { beforeAll, afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createDb, type Db } from '../db/client.js';
 import { migrate } from '../db/migrations.js';
@@ -160,7 +160,9 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
 
     expect(first.length + second.length).toBe(1);
 
-    const messages = await db!.query('SELECT COUNT(*)::int AS count FROM messages');
+    const messages = await db!.query(
+      'SELECT COUNT(*)::int AS count FROM messages',
+    );
     expect(messages.rows[0]?.count).toBe(1);
   });
 
@@ -182,8 +184,12 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
 
     await processConversation(db!, accepted.conversationId);
 
-    const events = await db!.query('SELECT COUNT(*)::int AS count FROM conversation_events');
-    const messages = await db!.query('SELECT COUNT(*)::int AS count FROM messages');
+    const events = await db!.query(
+      'SELECT COUNT(*)::int AS count FROM conversation_events',
+    );
+    const messages = await db!.query(
+      'SELECT COUNT(*)::int AS count FROM messages',
+    );
     expect(events.rows[0]?.count).toBe(1);
     expect(messages.rows[0]?.count).toBe(1);
   });
