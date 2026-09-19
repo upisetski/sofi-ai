@@ -38,7 +38,8 @@ jobs:
       - run: npm install
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm run format:check
+      - run: npm run format
+      - run: git diff --exit-code
       - run: npm test
       - run: npm run build
 
