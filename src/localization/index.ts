@@ -4,9 +4,11 @@ import { ru } from './locales/ru.js';
 
 export const supportedLocales = ['ru', 'be', 'en'] as const;
 export type SupportedLocale = (typeof supportedLocales)[number];
+
 export interface LocalizedWelcome {
   senderName: string;
   welcome: string;
+  thinking: string;
 }
 
 const locales: Record<SupportedLocale, LocalizedWelcome> = {
@@ -29,4 +31,12 @@ export function getWelcome(language: string | undefined): LocalizedWelcome {
 
 export function getWelcomeText(language: string | undefined): string {
   return getWelcome(language).welcome;
+}
+
+export function getThinking(language: string | undefined): LocalizedWelcome {
+  return getWelcome(language);
+}
+
+export function getThinkingText(language: string | undefined): string {
+  return getThinking(language).thinking;
 }
