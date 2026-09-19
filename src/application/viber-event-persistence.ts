@@ -207,12 +207,7 @@ export async function acceptViberCallback(
     await wakeJob(
       client,
       conversation.id,
-      getAvailableAt(
-        eventType,
-        receivedAt,
-        reorderDelayMs,
-        messageDebounceMs,
-      ),
+      getAvailableAt(eventType, receivedAt, reorderDelayMs, messageDebounceMs),
     );
 
     return {
