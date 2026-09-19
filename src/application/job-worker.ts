@@ -15,10 +15,7 @@ export class ConversationWorker {
   private timer: NodeJS.Timeout | undefined;
   private running = false;
 
-  constructor(
-    private readonly db: Pool,
-    options: WorkerOptions = {},
-  ) {
+  constructor(private readonly db: Pool, options: WorkerOptions = {}) {
     this.pollIntervalMs = options.pollIntervalMs ?? 250;
     this.staleAfterMs = options.staleAfterMs ?? 60_000;
   }
@@ -67,7 +64,10 @@ export class ConversationWorker {
     }
   }
 
-  private async claimJob(): Promise<{ id: string; conversationId: string } | null> {
+  private async claimJob(): Promise<{
+    id: string;
+    conversationId: string;
+  } | null> {
     const client = await this.db.connect();
 
     try {
