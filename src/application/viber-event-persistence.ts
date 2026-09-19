@@ -17,11 +17,15 @@ function getUser(callback: ViberCallback): {
   language?: string;
 } | null {
   if (callback.event === 'message') {
-    return { id: callback.sender.id, language: callback.sender.language };
+    return callback.sender.language === undefined
+      ? { id: callback.sender.id }
+      : { id: callback.sender.id, language: callback.sender.language };
   }
 
   if (callback.event === 'conversation_started' || callback.event === 'subscribed') {
-    return { id: callback.user.id, language: callback.user.language };
+    return callback.user.language === undefined
+      ? { id: callback.user.id }
+      : { id: callback.user.id, language: callback.user.language };
   }
 
   if (callback.event === 'unsubscribed') {
