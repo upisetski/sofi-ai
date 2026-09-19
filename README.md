@@ -26,7 +26,7 @@ These documents are the repository source of truth for product and engineering c
 - Dockerfile for production / Railway
 - GitHub Actions CI
 
-PostgreSQL is included as a local development service, but database schema, ORM, migrations, Redis/BullMQ and application persistence are deliberately deferred to focused feature PRs.
+PostgreSQL is used for application persistence and the durable conversation job queue. The local database runs through Docker Compose; production uses Railway PostgreSQL via DATABASE_URL.
 
 ## Requirements
 
@@ -96,6 +96,7 @@ npm run format
 npm run format:check
 npm test
 npm run test:watch
+npm run db:migrate
 ```
 
 ## Project structure
@@ -156,7 +157,7 @@ root Dockerfile
        ↓
 Sofi Node.js application
 
-Railway PostgreSQL will be added when the database layer is implemented.
+Railway PostgreSQL should be added as a managed service and its DATABASE_URL should be made available to the application service.
 ```
 
 Railway should use the repository's root `Dockerfile`. Runtime secrets and configuration are supplied through Railway environment variables.

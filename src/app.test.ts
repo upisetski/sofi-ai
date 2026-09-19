@@ -1,8 +1,18 @@
 import { createHmac } from 'node:crypto';
 
-import { describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { buildApp } from './app.js';
+import { createDb, type Db } from './db/client.js';
+import { migrate } from './db/migrations.js';
 import {
   getWelcome,
   getWelcomeText,
@@ -10,10 +20,37 @@ import {
 } from './localization/index.js';
 
 const authToken = 'test-viber-auth-token';
+const databaseUrl = process.env.DATABASE_URL;
+let db: Db | undefined;
 
 function sign(body: string): string {
   return createHmac('sha256', authToken).update(body).digest('hex');
 }
+
+function requireTestDb(): Db {
+  if (!db) {
+    throw new Error('DATABASE_URL is required for this test');
+  }
+
+  return db;
+}
+
+beforeAll(async () => {
+  if (!databaseUrl) return;
+  db = createDb(databaseUrl);
+  await migrate(db);
+});
+
+beforeEach(async () => {
+  if (!db) return;
+  await db.query(
+    'TRUNCATE jobs, messages, conversation_events, conversations, users RESTART IDENTITY CASCADE',
+  );
+});
+
+afterAll(async () => {
+  await db?.end();
+});
 
 describe('health', () => {
   it('returns ok', async () => {
@@ -80,77 +117,202 @@ describe('Viber webhook', () => {
     await app.close();
   });
 
-  it('sends a localized welcome for conversation_started', async () => {
-    process.env.VIBER_AUTH_TOKEN = authToken;
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ status: 0, status_message: 'ok' }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
-    );
-    vi.stubGlobal('fetch', fetchMock);
+  it.skipIf(!databaseUrl)(
+    'sends a localized welcome for conversation_started',
+    async () => {
+      process.env.VIBER_AUTH_TOKEN = authToken;
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ status: 0, status_message: 'ok' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+      vi.stubGlobal('fetch', fetchMock);
 
-    const app = buildApp();
-    const body = JSON.stringify({
-      event: 'conversation_started',
-      timestamp: 1457764197627,
-      message_token: 241256543215,
-      type: 'open',
-      user: {
-        id: '01234567890A==',
-        language: 'be',
-      },
-      subscribed: false,
-    });
+      const app = buildApp({ db: requireTestDb() });
+      const body = JSON.stringify({
+        event: 'conversation_started',
+        timestamp: 1457764197627,
+        message_token: 241256543215,
+        type: 'open',
+        user: {
+          id: '01234567890A==',
+          language: 'be',
+        },
+        subscribed: false,
+      });
 
-    const response = await app.inject({
-      method: 'POST',
-      url: '/viber/webhook',
-      headers: {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/viber/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-viber-content-signature': sign(body),
+        },
+        payload: body,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toBe('');
+
+      const request = fetchMock.mock.calls[0];
+      expect(request?.[0]).toBe('https://chatapi.viber.com/pa/send_message');
+      expect(JSON.parse(String(request?.[1]?.body))).toEqual({
+        receiver: '01234567890A==',
+        sender: { name: getWelcome('be').senderName },
+        type: 'text',
+        text: getWelcome('be').welcome,
+      });
+
+      vi.unstubAllGlobals();
+      await app.close();
+    },
+  );
+
+  it.skipIf(!databaseUrl)(
+    'parses and validates a signed callback and returns 200',
+    async () => {
+      process.env.VIBER_AUTH_TOKEN = authToken;
+      const app = buildApp({
+        db: requireTestDb(),
+      });
+      const body = JSON.stringify({
+        event: 'subscribed',
+        timestamp: 1457764197627,
+        message_token: 241256543215,
+        user: {
+          id: '01234567890A==',
+          language: 'be',
+        },
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/viber/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-viber-content-signature': sign(body),
+        },
+        payload: body,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toBe('');
+
+      await app.close();
+    },
+  );
+
+  it.skipIf(!databaseUrl)(
+    'persists conversation_started before returning success',
+    async () => {
+      process.env.VIBER_AUTH_TOKEN = authToken;
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ status: 0, status_message: 'ok' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const app = buildApp({
+        db: requireTestDb(),
+      });
+
+      const body = JSON.stringify({
+        event: 'conversation_started',
+        timestamp: 1457764197627,
+        message_token: 241256543215,
+        type: 'open',
+        user: {
+          id: '01234567890A==',
+          language: 'be',
+        },
+        subscribed: false,
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/viber/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-viber-content-signature': sign(body),
+        },
+        payload: body,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toBe('');
+
+      const eventResult = await requireTestDb().query(
+        'SELECT event_type FROM conversation_events',
+      );
+      expect(eventResult.rows).toEqual([
+        { event_type: 'conversation_started' },
+      ]);
+
+      const jobResult = await requireTestDb().query(
+        'SELECT status FROM jobs WHERE type = $1',
+        ['process_conversation'],
+      );
+      expect(jobResult.rows).toEqual([{ status: 'pending' }]);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      vi.unstubAllGlobals();
+      await app.close();
+    },
+  );
+
+  it.skipIf(!databaseUrl)(
+    'deduplicates an already accepted callback',
+    async () => {
+      process.env.VIBER_AUTH_TOKEN = authToken;
+      const app = buildApp({
+        db: requireTestDb(),
+      });
+
+      const body = JSON.stringify({
+        event: 'message',
+        timestamp: 1457764197627,
+        message_token: 241256543216,
+        sender: {
+          id: '01234567890A==',
+          language: 'be',
+        },
+        message: {
+          type: 'text',
+          text: 'hello',
+        },
+      });
+
+      const headers = {
         'content-type': 'application/json',
         'x-viber-content-signature': sign(body),
-      },
-      payload: body,
-    });
+      };
 
-    expect(response.statusCode).toBe(200);
-    expect(response.body).toBe('');
+      const first = await app.inject({
+        method: 'POST',
+        url: '/viber/webhook',
+        headers,
+        payload: body,
+      });
+      const second = await app.inject({
+        method: 'POST',
+        url: '/viber/webhook',
+        headers,
+        payload: body,
+      });
 
-    const request = fetchMock.mock.calls[0];
-    expect(request?.[0]).toBe('https://chatapi.viber.com/pa/send_message');
-    expect(JSON.parse(String(request?.[1]?.body))).toEqual({
-      receiver: '01234567890A==',
-      sender: { name: getWelcome('be').senderName },
-      type: 'text',
-      text: getWelcome('be').welcome,
-    });
+      expect(first.statusCode).toBe(200);
+      expect(second.statusCode).toBe(200);
 
-    vi.unstubAllGlobals();
-    await app.close();
-  });
+      const events = await requireTestDb().query(
+        'SELECT id FROM conversation_events',
+      );
+      expect(events.rowCount).toBe(1);
 
-  it('parses and validates a signed callback and returns 200', async () => {
-    process.env.VIBER_AUTH_TOKEN = authToken;
-    const app = buildApp();
-    const body = JSON.stringify({
-      event: 'webhook',
-      timestamp: 1457764197627,
-      message_token: 241256543215,
-    });
-
-    const response = await app.inject({
-      method: 'POST',
-      url: '/viber/webhook',
-      headers: {
-        'content-type': 'application/json',
-        'x-viber-content-signature': sign(body),
-      },
-      payload: body,
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.body).toBe('');
-
-    await app.close();
-  });
+      await app.close();
+    },
+  );
 });

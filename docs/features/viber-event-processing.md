@@ -245,9 +245,9 @@ Persist only data needed for conversation processing and debugging.
 
 ## Implementation checklist
 
-- [ ] Implementation complete
-- [ ] Tests added or updated
-- [ ] Documentation updated where needed
-- [ ] ADR added if a significant architectural decision was made
+- [x] Implementation complete
+- [x] Tests added or updated
+- [x] Documentation updated where needed
+- [x] ADR reviewed; no additional decision was required
 - [ ] Full local checks pass
 - [ ] Focused PR opened

@@ -1,9 +1,15 @@
 import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 
-import { handleViberWebhook } from './integrations/viber/webhook.js';
+import type { Db } from './db/client.js';
+import { createViberWebhookHandler } from './integrations/viber/webhook.js';
 
-export function buildApp() {
+export interface AppOptions {
+  db?: Db;
+  reorderDelayMs?: number;
+}
+
+export function buildApp(options: AppOptions = {}) {
   const isProduction = process.env.NODE_ENV === 'production';
 
   const app = Fastify(
@@ -31,7 +37,7 @@ export function buildApp() {
 
   app.get('/health', async () => ({ status: 'ok' }));
 
-  app.post('/viber/webhook', handleViberWebhook);
+  app.post('/viber/webhook', createViberWebhookHandler(options));
 
   return app;
 }

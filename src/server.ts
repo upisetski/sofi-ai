@@ -1,14 +1,37 @@
 import { buildApp } from './app.js';
+import { ConversationWorker } from './application/job-worker.js';
 import { env } from './config/env.js';
+import { createDb } from './db/client.js';
+import { migrate } from './db/migrations.js';
 
-const app = buildApp();
+const db = createDb();
 
 try {
+  await migrate(db);
+
+  const worker = new ConversationWorker(db);
+  worker.start();
+
+  const app = buildApp({
+    db,
+    reorderDelayMs: env.REORDER_DELAY_MS,
+  });
+
   await app.listen({
     host: env.HOST,
     port: env.PORT,
   });
+
+  const shutdown = async () => {
+    await app.close();
+    await worker.stop();
+    await db.end();
+  };
+
+  process.once('SIGTERM', () => void shutdown());
+  process.once('SIGINT', () => void shutdown());
 } catch (error) {
-  app.log.error(error);
+  await db.end();
+  console.error(error);
   process.exit(1);
 }
