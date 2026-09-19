@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 import { Pool, type PoolClient } from 'pg';
 
 export type Db = Pool;
