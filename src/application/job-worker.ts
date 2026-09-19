@@ -166,7 +166,8 @@ export class ConversationWorker {
       const deadlineExtended =
         availableAt !== undefined && availableAt.getTime() > Date.now();
 
-      const status = hasPendingEvents || deadlineExtended ? 'pending' : 'completed';
+      const status =
+        hasPendingEvents || deadlineExtended ? 'pending' : 'completed';
 
       await client.query(
         `
