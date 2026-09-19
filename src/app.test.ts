@@ -355,6 +355,14 @@ describe('Viber webhook', () => {
     'deduplicates an already accepted callback',
     async () => {
       process.env.VIBER_AUTH_TOKEN = authToken;
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ status: 0, status_message: 'ok' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
       const app = buildApp({
         db: requireTestDb(),
       });
@@ -393,12 +401,14 @@ describe('Viber webhook', () => {
 
       expect(first.statusCode).toBe(200);
       expect(second.statusCode).toBe(200);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
 
       const events = await requireTestDb().query(
         'SELECT id FROM conversation_events',
       );
       expect(events.rowCount).toBe(1);
 
+      vi.unstubAllGlobals();
       await app.close();
     },
   );
