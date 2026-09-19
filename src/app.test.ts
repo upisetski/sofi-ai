@@ -129,9 +129,7 @@ describe('Viber webhook', () => {
       );
       vi.stubGlobal('fetch', fetchMock);
 
-      const app = buildApp({
-        db: requireTestDb(),
-      });
+      const app = buildApp({ db: requireTestDb() });
       const body = JSON.stringify({
         event: 'conversation_started',
         timestamp: 1457764197627,
@@ -158,9 +156,7 @@ describe('Viber webhook', () => {
       expect(response.body).toBe('');
 
       const request = fetchMock.mock.calls[0];
-      expect(request?.[0]).toBe(
-        'https://chatapi.viber.com/pa/send_message',
-      );
+      expect(request?.[0]).toBe('https://chatapi.viber.com/pa/send_message');
       expect(JSON.parse(String(request?.[1]?.body))).toEqual({
         receiver: '01234567890A==',
         sender: { name: getWelcome('be').senderName },
