@@ -1,15 +1,23 @@
 import { createHmac } from 'node:crypto';
 
-import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { buildApp } from './app.js';
+import { createDb, type Db } from './db/client.js';
+import { migrate } from './db/migrations.js';
 import {
   getWelcome,
   getWelcomeText,
   resolveLocale,
 } from './localization/index.js';
-import { createDb, type Db } from './db/client.js';
-import { migrate } from './db/migrations.js';
 
 const authToken = 'test-viber-auth-token';
 const databaseUrl = process.env.DATABASE_URL;
@@ -17,6 +25,14 @@ let db: Db | undefined;
 
 function sign(body: string): string {
   return createHmac('sha256', authToken).update(body).digest('hex');
+}
+
+function requireTestDb(): Db {
+  if (!db) {
+    throw new Error('DATABASE_URL is required for this test');
+  }
+
+  return db;
 }
 
 beforeAll(async () => {
@@ -102,6 +118,92 @@ describe('Viber webhook', () => {
   });
 
   it.skipIf(!databaseUrl)(
+    'sends a localized welcome for conversation_started',
+    async () => {
+      process.env.VIBER_AUTH_TOKEN = authToken;
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ status: 0, status_message: 'ok' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const app = buildApp({
+        db: requireTestDb(),
+      });
+      const body = JSON.stringify({
+        event: 'conversation_started',
+        timestamp: 1457764197627,
+        message_token: 241256543215,
+        type: 'open',
+        user: {
+          id: '01234567890A==',
+          language: 'be',
+        },
+        subscribed: false,
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/viber/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-viber-content-signature': sign(body),
+        },
+        payload: body,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toBe('');
+
+      const request = fetchMock.mock.calls[0];
+      expect(request?.[0]).toBe(
+        'https://chatapi.viber.com/pa/send_message',
+      );
+      expect(JSON.parse(String(request?.[1]?.body))).toEqual({
+        receiver: '01234567890A==',
+        sender: { name: getWelcome('be').senderName },
+        type: 'text',
+        text: getWelcome('be').welcome,
+      });
+
+      vi.unstubAllGlobals();
+      await app.close();
+    },
+  );
+
+  it.skipIf(!databaseUrl)(
+    'parses and validates a signed callback and returns 200',
+    async () => {
+      process.env.VIBER_AUTH_TOKEN = authToken;
+      const app = buildApp({
+        db: requireTestDb(),
+      });
+      const body = JSON.stringify({
+        event: 'webhook',
+        timestamp: 1457764197627,
+        message_token: 241256543215,
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/viber/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-viber-content-signature': sign(body),
+        },
+        payload: body,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toBe('');
+
+      await app.close();
+    },
+  );
+
+  it.skipIf(!databaseUrl)(
     'persists conversation_started before returning success',
     async () => {
       process.env.VIBER_AUTH_TOKEN = authToken;
@@ -113,9 +215,9 @@ describe('Viber webhook', () => {
       );
       vi.stubGlobal('fetch', fetchMock);
 
-      const testDb = db;
-      if (!testDb) throw new Error('DATABASE_URL is required for this test');
-      const app = buildApp({ db: testDb });
+      const app = buildApp({
+        db: requireTestDb(),
+      });
 
       const body = JSON.stringify({
         event: 'conversation_started',
@@ -142,12 +244,14 @@ describe('Viber webhook', () => {
       expect(response.statusCode).toBe(200);
       expect(response.body).toBe('');
 
-      const eventResult = await db!.query(
+      const eventResult = await requireTestDb().query(
         'SELECT event_type FROM conversation_events',
       );
-      expect(eventResult.rows).toEqual([{ event_type: 'conversation_started' }]);
+      expect(eventResult.rows).toEqual([
+        { event_type: 'conversation_started' },
+      ]);
 
-      const jobResult = await db!.query(
+      const jobResult = await requireTestDb().query(
         'SELECT status FROM jobs WHERE type = $1',
         ['process_conversation'],
       );
@@ -164,9 +268,9 @@ describe('Viber webhook', () => {
     'deduplicates an already accepted callback',
     async () => {
       process.env.VIBER_AUTH_TOKEN = authToken;
-      const testDb = db;
-      if (!testDb) throw new Error('DATABASE_URL is required for this test');
-      const app = buildApp({ db: testDb });
+      const app = buildApp({
+        db: requireTestDb(),
+      });
 
       const body = JSON.stringify({
         event: 'message',
@@ -203,7 +307,9 @@ describe('Viber webhook', () => {
       expect(first.statusCode).toBe(200);
       expect(second.statusCode).toBe(200);
 
-      const events = await db!.query('SELECT id FROM conversation_events');
+      const events = await requireTestDb().query(
+        'SELECT id FROM conversation_events',
+      );
       expect(events.rowCount).toBe(1);
 
       await app.close();
