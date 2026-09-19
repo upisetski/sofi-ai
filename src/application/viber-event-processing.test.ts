@@ -58,14 +58,16 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
     const processed = await processConversation(db!, first.conversationId);
 
     expect(processed.map((event) => event.occurredAt.getTime())).toEqual([
-      1000,
-      2000,
+      1000, 2000,
     ]);
 
     const messages = await db!.query(
       'SELECT content FROM messages ORDER BY id ASC',
     );
-    expect(messages.rows).toEqual([{ content: 'first' }, { content: 'second' }]);
+    expect(messages.rows).toEqual([
+      { content: 'first' },
+      { content: 'second' },
+    ]);
   });
 
   it('uses event id as deterministic tie-breaker for equal timestamps', async () => {
