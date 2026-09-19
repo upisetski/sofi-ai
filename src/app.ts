@@ -37,10 +37,7 @@ export function buildApp(options: AppOptions = {}) {
 
   app.get('/health', async () => ({ status: 'ok' }));
 
-  app.post(
-    '/viber/webhook',
-    createViberWebhookHandler(options),
-  );
+  app.post('/viber/webhook', createViberWebhookHandler(options));
 
   return app;
 }
