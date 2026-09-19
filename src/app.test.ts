@@ -177,9 +177,13 @@ describe('Viber webhook', () => {
         db: requireTestDb(),
       });
       const body = JSON.stringify({
-        event: 'webhook',
+        event: 'subscribed',
         timestamp: 1457764197627,
         message_token: 241256543215,
+        user: {
+          id: '01234567890A==',
+          language: 'be',
+        },
       });
 
       const response = await app.inject({
