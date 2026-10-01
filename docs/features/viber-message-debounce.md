@@ -4,14 +4,14 @@
 
 Collect rapid user messages into one processing batch so Sofi does not start conversation processing after every individual message.
 
-For now, the user-facing response for the first message in a debounce burst is a localized acknowledgement: “Думаю…”.
+For now, the user-facing response for the first text message in a debounce burst is a localized acknowledgement that repeats that message. The echoed text is limited to 1000 Unicode characters.
 
 ## User behavior
 
 When a user sends several text messages close together:
 
 1. Sofi accepts each callback durably.
-2. Sofi sends one localized “Думаю…” acknowledgement for the burst.
+2. Sofi sends one localized acknowledgement for the first message, including up to 1000 characters of that message.
 3. Each new message postpones conversation processing until the debounce interval has elapsed since the latest message.
 4. The messages remain separate inbound messages in PostgreSQL; debounce changes processing timing, not the durable event history.
 5. A later message after the previous burst has finished starts a new acknowledgement/burst.
@@ -26,6 +26,7 @@ The acknowledgement is intentionally simple and temporary product behavior. AI g
 - Reusing the existing PostgreSQL-backed conversation job.
 - Extending the job availability time when another message arrives.
 - Sending at most one localized acknowledgement for an unprocessed burst.
+- Echoing the triggering text message with a 1000-character limit.
 - Russian, Belarusian, and English acknowledgement copy.
 - Safe worker recovery when a message arrives while a conversation job is processing.
 - Tests for burst grouping and localized acknowledgement behavior.
@@ -42,18 +43,20 @@ The acknowledgement is intentionally simple and temporary product behavior. AI g
 ## Requirements
 
 - A text `message` callback must remain durably persisted before webhook success.
-- The first unprocessed text message in a burst must request one acknowledgement.
+- Picture, video, file, and other non-text message callbacks must not receive the text debounce acknowledgement.
+- The first unprocessed text message in a burst must request one acknowledgement containing that message, truncated to at most 1000 Unicode characters.
 - Additional text messages with an earlier unprocessed message must not request another acknowledgement.
 - A duplicate callback must not request another acknowledgement.
 - Each accepted text message must move the conversation processing deadline to at least the configured debounce interval after its receipt time.
 - The effective message delay must not be shorter than the configured event reordering delay.
 - A message arriving while a conversation job is processing must leave the job runnable again after the current processing finishes.
 - Message text must not be logged by the debounce implementation.
+- The acknowledgement must preserve the configured locale.
 - No new persistent table is required.
 
 ## Acceptance criteria
 
-- [ ] The first message in a burst requests a localized “Думаю…” acknowledgement.
+- [ ] The first text message in a burst requests one localized acknowledgement containing that message.
 - [ ] A second message accepted before the burst is processed does not request a second acknowledgement.
 - [ ] A duplicate callback does not request an acknowledgement.
 - [ ] The job `available_at` is extended after each accepted message in the burst.
@@ -61,6 +64,8 @@ The acknowledgement is intentionally simple and temporary product behavior. AI g
 - [ ] The configured reorder delay remains a lower bound for message processing delay.
 - [ ] A later message after the previous burst has completed requests a new acknowledgement.
 - [ ] Russian, Belarusian, and English acknowledgement text is localized naturally.
+- [ ] The echoed message is capped at 1000 Unicode characters.
+- [ ] Non-text messages do not use text debounce acknowledgement behavior.
 - [ ] Existing event ordering, deduplication, and message projection behavior remains intact.
 - [ ] Full CI checks pass.
 
@@ -85,7 +90,8 @@ No new personal data is stored.
 - Existing Viber callback payload persistence remains unchanged.
 - Existing inbound message persistence remains unchanged.
 - No user message content is added to logs.
-- The localized acknowledgement is generated from the user's stored/received locale only.
+- The localized acknowledgement uses only the user's stored/received locale and the triggering message text.
+- The triggering message text is echoed only to the user through the Viber response and is not added to ordinary logs.
 
 ## Observability
 
@@ -101,7 +107,7 @@ Do not log message text or raw callback payloads.
 
 ## Testing
 
-- Unit/application: acknowledgement eligibility and localization.
+- Unit/application: acknowledgement eligibility, localization, and 1000-character truncation.
 - Integration: debounce deadline extension in PostgreSQL.
 - Webhook: one acknowledgement for a rapid-message burst.
 - Regression: event ordering, deduplication, and message projection.
