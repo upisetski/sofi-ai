@@ -79,8 +79,10 @@ export class ConversationWorker {
           try {
             await this.onTextBurstComplete({
               userId: processed.userId,
-              language: processed.language,
               messages: processed.textMessages,
+              ...(processed.language
+                ? { language: processed.language }
+                : {}),
             });
           } catch (error) {
             console.error('Failed to send text burst echo', error);
