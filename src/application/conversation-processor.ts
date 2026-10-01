@@ -9,19 +9,38 @@ export interface ProcessedEvent {
   position: number;
 }
 
+export interface ProcessedConversation {
+  events: ProcessedEvent[];
+  textMessages: string[];
+  userId: string;
+  language?: string;
+}
+
 export async function processConversation(
   db: Db,
   conversationId: string,
-): Promise<ProcessedEvent[]> {
+): Promise<ProcessedConversation> {
   return withConversationLock(db, conversationId, async (client) => {
     const conversationResult = await client.query<{
       last_processed_position: string;
+      provider_user_id: string;
+      locale: string | null;
     }>(
-      'SELECT last_processed_position FROM conversations WHERE id = $1 FOR UPDATE',
+      `SELECT c.last_processed_position, u.provider_user_id, c.locale
+       FROM conversations c
+       JOIN users u ON u.id = c.user_id
+       WHERE c.id = $1
+       FOR UPDATE OF c`,
       [conversationId],
     );
     const conversation = conversationResult.rows[0];
-    if (!conversation) return [];
+    if (!conversation) {
+      return {
+        events: [],
+        textMessages: [],
+        userId: '',
+      };
+    }
 
     const eventsResult = await client.query<{
       id: string;
@@ -38,6 +57,7 @@ export async function processConversation(
     );
 
     const processed: ProcessedEvent[] = [];
+    const textMessages: string[] = [];
     let lastProcessedPosition = Number(conversation.last_processed_position);
 
     for (const event of eventsResult.rows) {
@@ -55,6 +75,7 @@ export async function processConversation(
              ON CONFLICT (event_id) DO NOTHING`,
             [conversationId, text, event.id, event.position],
           );
+          textMessages.push(text);
         }
       } else if (event.event_type === 'subscribed') {
         await client.query(
@@ -94,7 +115,12 @@ export async function processConversation(
       [lastProcessedPosition, conversationId],
     );
 
-    return processed;
+    return {
+      events: processed,
+      textMessages,
+      userId: conversation.provider_user_id,
+      ...(conversation.locale ? { language: conversation.locale } : {}),
+    };
   });
 }
 

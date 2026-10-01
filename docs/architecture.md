@@ -148,7 +148,7 @@ The worker initially runs in the same Node.js application.
 
 A conversation processing job is created or woken as part of accepting an inbound event. Processing uses PostgreSQL locking so one conversation is handled by at most one worker at a time, while unrelated conversations can run concurrently.
 
-Newly accepted events have a small configurable reordering delay before processing. For text messages, the same job `available_at` field also provides the debounce timer: each accepted message can push the processing deadline forward, so a burst is processed only after the configured quiet period. The first text message in an unprocessed burst also receives one localized acknowledgement that echoes up to 1000 Unicode characters of that message. This is separate from provider event ordering and does not require a new debounce table.
+Newly accepted events have a small configurable reordering delay before processing. For text messages, the same job `available_at` field also provides the debounce timer: each accepted message can push the processing deadline forward, so a burst is processed only after the configured quiet period (10 seconds by default). The first text message in an unprocessed burst receives one localized thinking acknowledgement that echoes up to 1000 Unicode characters of that message. Once the quiet period expires, the worker sends one localized echo containing the text messages from the burst. This is separate from provider event ordering and does not require a new debounce table.
 
 Move to Redis + BullMQ + dedicated workers only if actual workload makes that worthwhile.
 
@@ -176,7 +176,7 @@ Very late events are retained as durable history and surfaced operationally rath
 
 Conversation context is built from a bounded set of recent messages and the current processing unit. Do not send unbounded history to the model.
 
-Rapid text-message debounce is implemented at the job scheduling layer. Messages remain separate durable events/messages; debounce changes only when the conversation processing job becomes eligible.
+Rapid text-message debounce is implemented at the job scheduling layer. Messages remain separate durable events/messages; debounce changes only when the conversation processing job becomes eligible. The current Viber Bot API does not provide a typing-indicator operation, so the waiting period does not send a typing signal.
 
 ## AI Router
 

@@ -197,7 +197,7 @@ The repository already includes:
 - Viber webhook validation and event processing
 - PostgreSQL schema and migrations
 - PostgreSQL-backed background jobs
-- message ordering and debounce
+- message ordering and 10-second text debounce with localized echo
 - localized responses
 - production Docker image
 - Railway-compatible runtime configuration

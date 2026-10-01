@@ -5,7 +5,7 @@ import type { ViberCallback } from '../integrations/viber/schemas.js';
 
 const provider = 'viber';
 const jobType = 'process_conversation';
-const defaultMessageDebounceMs = 1500;
+const defaultMessageDebounceMs = 10000;
 
 export interface AcceptedEvent {
   eventId: string;

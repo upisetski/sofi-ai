@@ -1,15 +1,20 @@
 import { buildApp } from './app.js';
+import { handleTextBurstComplete } from './application/text-burst-handler.js';
 import { ConversationWorker } from './application/job-worker.js';
 import { env } from './config/env.js';
 import { createDb } from './db/client.js';
 import { migrate } from './db/migrations.js';
+import { createViberClient } from './integrations/viber/client.js';
 
 const db = createDb();
+const viberClient = createViberClient({ authToken: env.VIBER_AUTH_TOKEN });
 
 try {
   await migrate(db);
 
-  const worker = new ConversationWorker(db);
+  const worker = new ConversationWorker(db, {
+    onTextBurstComplete: (input) => handleTextBurstComplete(viberClient, input),
+  });
   worker.start();
 
   const app = buildApp({
