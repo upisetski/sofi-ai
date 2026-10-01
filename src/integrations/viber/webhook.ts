@@ -129,6 +129,7 @@ export function createViberWebhookHandler(
 
       if (
         result.data.event === 'message' &&
+        result.data.message.type === 'text' &&
         !accepted.duplicate &&
         accepted.shouldSendThinking
       ) {
@@ -136,6 +137,7 @@ export function createViberWebhookHandler(
         await handleThinking(client, {
           userId: result.data.sender.id,
           language: result.data.sender.language,
+          message: result.data.message.text,
         });
       }
 
