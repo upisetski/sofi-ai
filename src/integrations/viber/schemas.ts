@@ -13,10 +13,7 @@ const viberUserSchema = z.object({
   device_type: z.string().optional(),
 });
 
-const messageTokenSchema = z.union([
-  z.string().min(1),
-  z.number().int().nonnegative(),
-]);
+const messageTokenSchema = z.string().min(1);
 
 const callbackBaseSchema = z.object({
   timestamp: z.number().int().nonnegative(),
