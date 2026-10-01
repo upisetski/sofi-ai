@@ -72,6 +72,8 @@ Expected response:
 { "status": "ok" }
 ```
 
+When a database is configured, the health endpoint performs a lightweight PostgreSQL readiness check. If PostgreSQL is unavailable, it returns HTTP 503.
+
 Stop PostgreSQL:
 
 ```bash
@@ -157,7 +159,11 @@ root Dockerfile
        ↓
 Sofi Node.js application
 
-Railway PostgreSQL should be added as a managed service and its DATABASE_URL should be made available to the application service.
+Railway PostgreSQL
+       ↓
+DATABASE_URL
+       ↓
+Sofi application
 ```
 
 Railway should use the repository's root `Dockerfile`. Runtime secrets and configuration are supplied through Railway environment variables.
@@ -168,29 +174,34 @@ Expected application variables include:
 NODE_ENV=production
 PORT=<provided by Railway>
 HOST=0.0.0.0
+DATABASE_URL=\${{Postgres.DATABASE_URL}}
 VIBER_AUTH_TOKEN=...
 OPENROUTER_API_KEY=...
-SENTRY_DSN=...
 ```
 
-`DATABASE_URL` will be added when the PostgreSQL application layer is introduced.
+In production, `DATABASE_URL` is required during configuration parsing. The application runs database migrations before starting the HTTP server, and the `/health` endpoint verifies PostgreSQL readiness.
+
+## Implemented
+
+The repository already includes:
+
+- Viber webhook validation and event processing
+- PostgreSQL schema and migrations
+- PostgreSQL-backed background jobs
+- message ordering and debounce
+- localized responses
+- production Docker image
+- Railway-compatible runtime configuration
 
 ## Deliberately deferred
 
-This bootstrap does not implement:
+The MVP does not introduce:
 
-- Viber API/webhook logic
-- PostgreSQL schema or ORM
-- database migrations
-- OpenRouter integration
-- AI routing
-- background jobs
 - Redis
 - BullMQ
 - S3/object storage
-- Sentry integration
+- separate worker services
+- Kubernetes
 - admin dashboard
-- analytics
-- rate limiting
 
-Those are introduced in focused follow-up PRs as the corresponding application features are implemented.
+These should be added only when a concrete product or operational requirement justifies them.
