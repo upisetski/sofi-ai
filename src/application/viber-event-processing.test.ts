@@ -192,9 +192,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
       10000,
     );
 
-    expect(accepted.shouldSendThinking).toBe(true);
     expect(duplicate.duplicate).toBe(true);
-    expect(duplicate.shouldSendThinking).toBe(false);
 
     await processConversation(db!, accepted.conversationId);
 
@@ -208,7 +206,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
     expect(messages.rows[0]?.count).toBe(1);
   });
 
-  it('debounces rapid messages and starts a new acknowledgement window after processing', async () => {
+  it('debounces rapid messages and starts a new response window after processing', async () => {
     const firstReceivedAt = new Date('2026-01-01T00:00:00Z');
     const secondReceivedAt = new Date('2026-01-01T00:00:00.500Z');
 
@@ -228,9 +226,6 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
       10000,
     );
 
-    expect(first.shouldSendThinking).toBe(true);
-    expect(second.shouldSendThinking).toBe(false);
-
     const job = await db!.query<{ available_at: Date }>(
       'SELECT available_at FROM jobs WHERE conversation_id = $1',
       [first.conversationId],
@@ -248,8 +243,6 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
       1000,
       10000,
     );
-
-    expect(third.shouldSendThinking).toBe(true);
 
     await processConversation(db!, first.conversationId);
 
@@ -318,6 +311,5 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
     );
 
     expect(messageEvent.conversationId).toBe(started.conversationId);
-    expect(messageEvent.shouldSendThinking).toBe(true);
   });
 });
