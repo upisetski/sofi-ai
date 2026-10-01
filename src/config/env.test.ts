@@ -8,7 +8,9 @@ const baseEnv = {
 
 describe('environment configuration', () => {
   it('allows DATABASE_URL to be omitted outside production', () => {
-    expect(parseEnv({ ...baseEnv, NODE_ENV: 'test' }).DATABASE_URL).toBeUndefined();
+    expect(
+      parseEnv({ ...baseEnv, NODE_ENV: 'test' }).DATABASE_URL,
+    ).toBeUndefined();
   });
 
   it('requires DATABASE_URL in production', () => {
