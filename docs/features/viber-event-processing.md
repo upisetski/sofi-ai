@@ -15,7 +15,7 @@ The four callbacks in scope are:
 
 Webhook delivery must not wait for conversation processing or AI work.
 
-A valid callback is durably accepted, acknowledged quickly, and processed asynchronously. Duplicate provider deliveries do not create duplicate business events or messages.
+The Viber webhook availability check (`event=webhook`) and valid delivery/status callbacks that are outside the MVP processing scope are acknowledged with HTTP 200 and are not persisted. User-facing MVP callbacks are durably accepted, acknowledged quickly, and processed asynchronously. Duplicate provider deliveries do not create duplicate business events or messages.
 
 For a single user conversation, events are processed in provider `timestamp` order. Events that arrive out of order are held briefly by the processing scheduler so that a later-arriving event with an earlier provider timestamp can be considered before processing advances.
 
@@ -46,11 +46,11 @@ Rapid-message debounce is intentionally not implemented by this feature.
 - Redis, BullMQ, Kafka, or another external queue.
 - A dedicated `conversation_turns` table.
 - Persistence of Viber avatars or other non-essential profile data.
-- Viber callback types other than the four in scope.
+- Business processing of Viber callback types other than the four in scope. Valid delivery/status callbacks are acknowledged and ignored at the transport boundary.
 
 ## Requirements
 
-- A valid callback must be persisted before the webhook returns success.
+- A valid in-scope callback must be persisted before the webhook returns success; valid Viber availability/status callbacks outside the processing scope are acknowledged without persistence.
 - The original validated callback payload must be retained as durable event data.
 - Duplicate delivery of the same provider event must be a no-op.
 - Events for the same conversation must be selected for processing by `timestamp ASC`, then a deterministic database key.
@@ -67,6 +67,8 @@ Rapid-message debounce is intentionally not implemented by this feature.
 
 ## Acceptance criteria
 
+- [ ] The Viber `event=webhook` availability callback is acknowledged with HTTP 200 without database processing.
+- [ ] Valid delivery/status callbacks outside the MVP scope are acknowledged with HTTP 200 without database processing.
 - [ ] A valid `conversation_started` callback is stored and scheduled for asynchronous processing.
 - [ ] A valid `subscribed` callback is stored and updates the user's subscription state when processed.
 - [ ] A valid `unsubscribed` callback is stored and updates the user's subscription state when processed.
