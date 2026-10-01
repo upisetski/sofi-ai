@@ -21,7 +21,7 @@ const signatureHeader = 'x-viber-content-signature';
  */
 function parseViberPayload(body: string): unknown {
   const normalizedBody = body.replace(
-    /(\\"message_token\\"\\s*:\\s*)(\\d+)(?=\\s*[,}])/g,
+    /("message_token"\\s*:\\s*)(\\d+)(?=\\s*[,}])/g,
     '$1"$2"',
   );
 
