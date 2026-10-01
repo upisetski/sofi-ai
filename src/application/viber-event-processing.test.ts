@@ -60,7 +60,8 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
     const processed = await processConversation(db!, first.conversationId);
 
     expect(processed.events.map((event) => event.occurredAt.getTime())).toEqual([
-      1000, 2000,
+      1000,
+      2000,
     ]);
 
     const messages = await db!.query(
