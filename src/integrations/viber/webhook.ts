@@ -3,7 +3,6 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { handleConversationStarted } from '../../application/welcome-handler.js';
-import { handleThinking } from '../../application/thinking-handler.js';
 import {
   acceptViberCallback,
   type AcceptedEvent,
@@ -152,20 +151,6 @@ export function createViberWebhookHandler(
         await handleConversationStarted(client, {
           userId: result.data.user.id,
           language: result.data.user.language,
-        });
-      }
-
-      if (
-        result.data.event === 'message' &&
-        result.data.message.type === 'text' &&
-        !accepted.duplicate &&
-        accepted.shouldSendThinking
-      ) {
-        const client = createViberClient({ authToken });
-        await handleThinking(client, {
-          userId: result.data.sender.id,
-          language: result.data.sender.language,
-          message: result.data.message.text,
         });
       }
 
