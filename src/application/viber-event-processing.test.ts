@@ -263,6 +263,36 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
     ]);
   });
 
+  it('does not debounce non-text messages', async () => {
+    const accepted = await acceptViberCallback(
+      db!,
+      {
+        event: 'message',
+        timestamp: 1000,
+        message_token: 'picture-1',
+        sender: user,
+        message: {
+          type: 'picture',
+          text: 'caption',
+          media: 'https://example.com/image.jpg',
+        },
+      },
+      new Date('2026-01-01T00:00:00Z'),
+      1000,
+      1500,
+    );
+
+    expect(accepted.shouldSendThinking).toBe(false);
+
+    const job = await db!.query<{ available_at: Date }>(
+      'SELECT available_at FROM jobs WHERE conversation_id = $1',
+      [accepted.conversationId],
+    );
+    expect(job.rows[0]?.available_at.toISOString()).toBe(
+      '2026-01-01T00:00:01.000Z',
+    );
+  });
+
   it('does not suppress the first message because a lifecycle event is pending', async () => {
     const started = await acceptViberCallback(
       db!,
