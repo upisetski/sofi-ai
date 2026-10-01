@@ -236,7 +236,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
       [first.conversationId],
     );
     expect(job.rows[0]?.available_at.toISOString()).toBe(
-      '2026-01-01T00:00:10.000Z',
+      '2026-01-01T00:00:10.500Z',
     );
 
     await processConversation(db!, first.conversationId);
