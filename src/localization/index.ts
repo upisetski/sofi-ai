@@ -15,8 +15,14 @@ export interface LocalizedThinking {
   thinking: string;
 }
 
+export interface LocalizedEcho {
+  senderName: string;
+  echo: string;
+}
+
 interface LocaleCopy extends LocalizedWelcome {
   thinkingIntro: string;
+  echoIntro: string;
 }
 
 const locales: Record<SupportedLocale, LocaleCopy> = {
@@ -59,4 +65,17 @@ export function getThinkingText(
   message: string,
 ): string {
   return getThinking(language, message).thinking;
+}
+
+export function getEcho(
+  language: string | undefined,
+  messages: string[],
+): LocalizedEcho {
+  const locale = locales[resolveLocale(language)];
+  const excerpt = Array.from(messages.join('\n\n')).slice(0, 1000).join('');
+
+  return {
+    senderName: locale.senderName,
+    echo: `${locale.echoIntro}\n\n${excerpt}`,
+  };
 }
