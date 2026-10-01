@@ -4,14 +4,26 @@ import { processConversation } from './conversation-processor.js';
 
 const jobType = 'process_conversation';
 
+export interface TextBurstCompleteInput {
+  userId: string;
+  language?: string;
+  messages: string[];
+}
+
 export interface WorkerOptions {
   pollIntervalMs?: number;
   staleAfterMs?: number;
+  onTextBurstComplete?: (
+    input: TextBurstCompleteInput,
+  ) => Promise<void>;
 }
 
 export class ConversationWorker {
   private readonly pollIntervalMs: number;
   private readonly staleAfterMs: number;
+  private readonly onTextBurstComplete:
+    | WorkerOptions['onTextBurstComplete']
+    | undefined;
   private timer: NodeJS.Timeout | undefined;
   private running = false;
 
@@ -21,6 +33,7 @@ export class ConversationWorker {
   ) {
     this.pollIntervalMs = options.pollIntervalMs ?? 250;
     this.staleAfterMs = options.staleAfterMs ?? 60_000;
+    this.onTextBurstComplete = options.onTextBurstComplete;
   }
 
   start(): void {
@@ -52,8 +65,27 @@ export class ConversationWorker {
       if (!job) return false;
 
       try {
-        await processConversation(this.db, job.conversationId);
-        await this.finishJob(job.id);
+        const processed = await processConversation(
+          this.db,
+          job.conversationId,
+        );
+        const completed = await this.finishJob(job.id);
+
+        if (
+          completed &&
+          processed.textMessages.length > 0 &&
+          this.onTextBurstComplete
+        ) {
+          try {
+            await this.onTextBurstComplete({
+              userId: processed.userId,
+              language: processed.language,
+              messages: processed.textMessages,
+            });
+          } catch (error) {
+            console.error('Failed to send text burst echo', error);
+          }
+        }
       } catch (error) {
         await this.failJob(
           job.id,
@@ -123,7 +155,7 @@ export class ConversationWorker {
     }
   }
 
-  private async finishJob(id: string): Promise<void> {
+  private async finishJob(id: string): Promise<boolean> {
     const client = await this.db.connect();
 
     try {
@@ -137,7 +169,7 @@ export class ConversationWorker {
 
       if (!job) {
         await client.query('COMMIT');
-        return;
+        return false;
       }
 
       const pendingEvents = await client.query<{ exists: boolean }>(
@@ -181,6 +213,7 @@ export class ConversationWorker {
       );
 
       await client.query('COMMIT');
+      return status === 'completed';
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
