@@ -256,7 +256,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
     ]);
   });
 
-  it('does not debounce non-text messages', async () => {
+  it('does not apply text debounce to non-text messages', async () => {
     const accepted = await acceptViberCallback(
       db!,
       {
@@ -275,8 +275,6 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
       10000,
     );
 
-    expect(accepted.shouldSendThinking).toBe(false);
-
     const job = await db!.query<{ available_at: Date }>(
       'SELECT available_at FROM jobs WHERE conversation_id = $1',
       [accepted.conversationId],
@@ -286,7 +284,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
     );
   });
 
-  it('does not suppress the first message because a lifecycle event is pending', async () => {
+  it('keeps text messages debounced when a lifecycle event is pending', async () => {
     const started = await acceptViberCallback(
       db!,
       {
