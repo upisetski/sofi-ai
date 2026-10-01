@@ -13,8 +13,7 @@ try {
   await migrate(db);
 
   const worker = new ConversationWorker(db, {
-    onTextBurstComplete: (input) =>
-      handleTextBurstComplete(viberClient, input),
+    onTextBurstComplete: (input) => handleTextBurstComplete(viberClient, input),
   });
   worker.start();
 
