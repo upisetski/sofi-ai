@@ -70,4 +70,4 @@ The health endpoint does not expose database content or user data. Database conn
 - [x] Documentation updated where needed
 - [x] ADR added if a significant architectural decision was made
 - [ ] Full local checks pass
-- [ ] Focused PR opened
+- [x] Focused PR opened
