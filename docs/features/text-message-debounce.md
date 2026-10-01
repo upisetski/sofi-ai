@@ -13,7 +13,7 @@ When a user starts a burst of text messages:
 3. While the timer is running, Sofi does not send another acknowledgement.
 4. When 10 seconds have passed without another text message, Sofi sends one localized echo containing the text messages from the burst.
 
-Viber does not expose a typing-indicator operation in the current Bot REST API, so no typing signal is sent during the waiting period. The supported outbound operation remains `send_message`. citeturn357672view0turn357672view1
+Viber's current Bot REST API does not expose a typing-indicator operation, so no typing signal is sent during the waiting period. The supported outbound operation remains `send_message`.
 
 ## Scope
 
