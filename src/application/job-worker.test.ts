@@ -49,7 +49,7 @@ afterAll(async () => {
 });
 
 describe.skipIf(!databaseUrl)('conversation worker', () => {
-  it('waits for ten seconds after the latest message before sending one echo', async () => {
+  it('waits for ten seconds after the latest message before sending one response', async () => {
     const firstReceivedAt = new Date(Date.now() - 15_000);
     const secondReceivedAt = new Date(Date.now() - 5_000);
 

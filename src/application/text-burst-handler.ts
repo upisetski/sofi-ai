@@ -1,4 +1,4 @@
-import { getEcho } from '../localization/index.js';
+import { getTextBurstResponse } from '../localization/index.js';
 import type { ViberClient } from '../integrations/viber/client.js';
 
 export async function handleTextBurstComplete(
@@ -9,11 +9,14 @@ export async function handleTextBurstComplete(
     messages: string[];
   },
 ): Promise<void> {
-  const localizedEcho = getEcho(input.language, input.messages);
+  const localizedResponse = getTextBurstResponse(
+    input.language,
+    input.messages,
+  );
 
   await client.sendTextMessage({
     receiver: input.userId,
-    senderName: localizedEcho.senderName,
-    text: localizedEcho.echo,
+    senderName: localizedResponse.senderName,
+    text: localizedResponse.text,
   });
 }

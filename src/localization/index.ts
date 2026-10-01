@@ -10,19 +10,13 @@ export interface LocalizedWelcome {
   welcome: string;
 }
 
-export interface LocalizedThinking {
+export interface LocalizedTextBurstResponse {
   senderName: string;
-  thinking: string;
-}
-
-export interface LocalizedEcho {
-  senderName: string;
-  echo: string;
+  text: string;
 }
 
 interface LocaleCopy extends LocalizedWelcome {
-  thinkingIntro: string;
-  echoIntro: string;
+  textBurstIntro: string;
 }
 
 const locales: Record<SupportedLocale, LocaleCopy> = {
@@ -47,35 +41,15 @@ export function getWelcomeText(language: string | undefined): string {
   return getWelcome(language).welcome;
 }
 
-export function getThinking(
-  language: string | undefined,
-  message: string,
-): LocalizedThinking {
-  const locale = locales[resolveLocale(language)];
-  const excerpt = Array.from(message).slice(0, 1000).join('');
-
-  return {
-    senderName: locale.senderName,
-    thinking: `${locale.thinkingIntro}\n\n${excerpt}`,
-  };
-}
-
-export function getThinkingText(
-  language: string | undefined,
-  message: string,
-): string {
-  return getThinking(language, message).thinking;
-}
-
-export function getEcho(
+export function getTextBurstResponse(
   language: string | undefined,
   messages: string[],
-): LocalizedEcho {
+): LocalizedTextBurstResponse {
   const locale = locales[resolveLocale(language)];
   const excerpt = Array.from(messages.join('\n\n')).slice(0, 1000).join('');
 
   return {
     senderName: locale.senderName,
-    echo: `${locale.echoIntro}\n\n${excerpt}`,
+    text: `${locale.textBurstIntro}\n\n${excerpt}`,
   };
 }
