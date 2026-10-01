@@ -8,10 +8,18 @@ export type SupportedLocale = (typeof supportedLocales)[number];
 export interface LocalizedWelcome {
   senderName: string;
   welcome: string;
+}
+
+export interface LocalizedThinking {
+  senderName: string;
   thinking: string;
 }
 
-const locales: Record<SupportedLocale, LocalizedWelcome> = {
+interface LocaleCopy extends LocalizedWelcome {
+  thinkingIntro: string;
+}
+
+const locales: Record<SupportedLocale, LocaleCopy> = {
   ru,
   be: belarusian,
   en: english,
@@ -33,10 +41,22 @@ export function getWelcomeText(language: string | undefined): string {
   return getWelcome(language).welcome;
 }
 
-export function getThinking(language: string | undefined): LocalizedWelcome {
-  return getWelcome(language);
+export function getThinking(
+  language: string | undefined,
+  message: string,
+): LocalizedThinking {
+  const locale = locales[resolveLocale(language)];
+  const excerpt = Array.from(message).slice(0, 1000).join('');
+
+  return {
+    senderName: locale.senderName,
+    thinking: `${locale.thinkingIntro}\n\n${excerpt}`,
+  };
 }
 
-export function getThinkingText(language: string | undefined): string {
-  return getThinking(language).thinking;
+export function getThinkingText(
+  language: string | undefined,
+  message: string,
+): string {
+  return getThinking(language, message).thinking;
 }
