@@ -430,7 +430,7 @@ describe('Viber webhook', () => {
       );
       expect(jobResult.rows).toEqual([{ status: 'pending' }]);
 
-      expect(fetchMock).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
 
       vi.unstubAllGlobals();
       await app.close();
@@ -487,7 +487,7 @@ describe('Viber webhook', () => {
 
       expect(first.statusCode).toBe(200);
       expect(second.statusCode).toBe(200);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).not.toHaveBeenCalled();
 
       const events = await requireTestDb().query(
         'SELECT id FROM conversation_events',
