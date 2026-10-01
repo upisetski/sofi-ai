@@ -9,7 +9,7 @@ describe('Viber callback schemas', () => {
       {
         event: 'webhook',
         timestamp: 1457764197627,
-        message_token: '241256543215',
+        message_token: '5741311803571721087',
       },
     ],
     [
@@ -149,6 +149,26 @@ describe('Viber callback schemas', () => {
     },
   ])('accepts a %s message payload', (payload) => {
     expect(viberMessageSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it('accepts a Viber message token larger than JavaScript safe integer range', () => {
+    const result = viberCallbackSchema.safeParse({
+      event: 'webhook',
+      timestamp: 1457764197627,
+      message_token: '5741311803571721087',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a numeric message token because tokens are preserved as strings', () => {
+    expect(
+      viberCallbackSchema.safeParse({
+        event: 'webhook',
+        timestamp: 1457764197627,
+        message_token: 241256543215,
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects an unknown callback event', () => {
