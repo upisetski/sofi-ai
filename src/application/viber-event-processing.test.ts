@@ -80,7 +80,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
       0,
       0,
     );
-    const second = await acceptViberCallback(
+    await acceptViberCallback(
       db!,
       message(1000, 'token-2', 'second'),
       new Date('2026-01-01T00:00:02Z'),
@@ -236,7 +236,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
 
     await processConversation(db!, first.conversationId);
 
-    const third = await acceptViberCallback(
+    await acceptViberCallback(
       db!,
       message(1200, 'token-3', 'third'),
       new Date('2026-01-01T00:00:15Z'),
