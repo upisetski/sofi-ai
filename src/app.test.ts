@@ -99,9 +99,9 @@ describe('localization', () => {
     );
 
     const longMessage = getThinking('en', '🙂'.repeat(1001)).thinking;
-    expect([...longMessage.slice('Thinking about your message:\n\n'.length)]).toHaveLength(
-      1000,
-    );
+    expect(
+      [...longMessage.slice('Thinking about your message:\n\n'.length)],
+    ).toHaveLength(1000);
   });
 });
 
