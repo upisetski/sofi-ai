@@ -88,9 +88,20 @@ describe('localization', () => {
     expect(getWelcomeText('ru')).toContain('Я Софи');
     expect(getWelcomeText('be')).toContain('Я Сафі');
     expect(getWelcomeText('en')).toContain('Sofi');
-    expect(getThinking('ru').thinking).toBe('Думаю…');
-    expect(getThinking('be').thinking).toBe('Думаю…');
-    expect(getThinking('en').thinking).toBe('Thinking…');
+    expect(getThinking('ru', 'hello').thinking).toBe(
+      'Думаю над твоим сообщением:\n\nhello',
+    );
+    expect(getThinking('be', 'hello').thinking).toBe(
+      'Думаю над тваім паведамленнем:\n\nhello',
+    );
+    expect(getThinking('en', 'hello').thinking).toBe(
+      'Thinking about your message:\n\nhello',
+    );
+
+    const longMessage = getThinking('en', '🙂'.repeat(1001)).thinking;
+    expect([...longMessage.slice('Thinking about your message:\n\n'.length)]).toHaveLength(
+      1000,
+    );
   });
 });
 
@@ -246,9 +257,9 @@ describe('Viber webhook', () => {
       const request = fetchMock.mock.calls[0];
       expect(JSON.parse(String(request?.[1]?.body))).toEqual({
         receiver: '01234567890A==',
-        sender: { name: getThinking('be').senderName },
+        sender: { name: getThinking('be', 'hello').senderName },
         type: 'text',
-        text: getThinking('be').thinking,
+        text: getThinking('be', 'hello').thinking,
       });
 
       vi.unstubAllGlobals();
