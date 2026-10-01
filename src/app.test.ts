@@ -14,8 +14,7 @@ import { buildApp } from './app.js';
 import { createDb, type Db } from './db/client.js';
 import { migrate } from './db/migrations.js';
 import {
-  getEcho,
-  getThinking,
+  getTextBurstResponse,
   getWelcome,
   getWelcomeText,
   resolveLocale,
@@ -89,24 +88,19 @@ describe('localization', () => {
     expect(getWelcomeText('ru')).toContain('Я Софи');
     expect(getWelcomeText('be')).toContain('Я Сафі');
     expect(getWelcomeText('en')).toContain('Sofi');
-    expect(getThinking('ru', 'hello').thinking).toBe(
-      'Думаю над твоим сообщением:\n\nhello',
+    expect(getTextBurstResponse('ru', ['first', 'second']).text).toBe(
+      'Думаю над вашим вопросом:\n\nfirst\n\nsecond',
     );
-    expect(getThinking('be', 'hello').thinking).toBe(
-      'Думаю над тваім паведамленнем:\n\nhello',
+    expect(getTextBurstResponse('be', ['hello']).text).toBe(
+      'Думаю над вашым пытаннем:\n\nhello',
     );
-    expect(getThinking('en', 'hello').thinking).toBe(
-      'Thinking about your message:\n\nhello',
+    expect(getTextBurstResponse('en', ['hello']).text).toBe(
+      'Thinking about your question:\n\nhello',
     );
-    expect(getEcho('ru', ['first', 'second']).echo).toBe(
-      'Эхо:\n\nfirst\n\nsecond',
-    );
-    expect(getEcho('be', ['hello']).echo).toBe('Рэха:\n\nhello');
-    expect(getEcho('en', ['hello']).echo).toBe('Echo:\n\nhello');
 
-    const longMessage = getThinking('en', '🙂'.repeat(1001)).thinking;
+    const longMessage = getTextBurstResponse('en', ['🙂'.repeat(1001)]).text;
     expect([
-      ...longMessage.slice('Thinking about your message:\n\n'.length),
+      ...longMessage.slice('Thinking about your question:\n\n'.length),
     ]).toHaveLength(1000);
   });
 });
@@ -274,7 +268,7 @@ describe('Viber webhook', () => {
   );
 
   it.skipIf(!databaseUrl)(
-    'sends one localized thinking acknowledgement for rapid messages',
+    'does not respond immediately to rapid messages',
     async () => {
       process.env.VIBER_AUTH_TOKEN = authToken;
       const fetchMock = vi.fn().mockResolvedValue(
@@ -341,15 +335,7 @@ describe('Viber webhook', () => {
 
       expect(first.statusCode).toBe(200);
       expect(second.statusCode).toBe(200);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-
-      const request = fetchMock.mock.calls[0];
-      expect(JSON.parse(String(request?.[1]?.body))).toEqual({
-        receiver: '01234567890A==',
-        sender: { name: getThinking('be', 'hello').senderName },
-        type: 'text',
-        text: getThinking('be', 'hello').thinking,
-      });
+      expect(fetchMock).not.toHaveBeenCalled();
 
       vi.unstubAllGlobals();
       await app.close();
