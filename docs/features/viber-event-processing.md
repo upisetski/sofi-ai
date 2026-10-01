@@ -50,7 +50,7 @@ Rapid-message debounce is intentionally not implemented by this feature.
 
 ## Requirements
 
-- A valid callback must be persisted before the webhook returns success.
+- A valid in-scope callback must be persisted before the webhook returns success; valid Viber availability/status callbacks outside the processing scope are acknowledged without persistence.
 - The original validated callback payload must be retained as durable event data.
 - Duplicate delivery of the same provider event must be a no-op.
 - Events for the same conversation must be selected for processing by `timestamp ASC`, then a deterministic database key.
@@ -67,6 +67,8 @@ Rapid-message debounce is intentionally not implemented by this feature.
 
 ## Acceptance criteria
 
+- [ ] The Viber `event=webhook` availability callback is acknowledged with HTTP 200 without database processing.
+- [ ] Valid delivery/status callbacks outside the MVP scope are acknowledged with HTTP 200 without database processing.
 - [ ] A valid `conversation_started` callback is stored and scheduled for asynchronous processing.
 - [ ] A valid `subscribed` callback is stored and updates the user's subscription state when processed.
 - [ ] A valid `unsubscribed` callback is stored and updates the user's subscription state when processed.
