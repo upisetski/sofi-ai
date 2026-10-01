@@ -94,6 +94,20 @@ export function createViberWebhookHandler(
       return;
     }
 
+    if (
+      result.data.event === 'webhook' ||
+      result.data.event === 'delivered' ||
+      result.data.event === 'seen' ||
+      result.data.event === 'failed'
+    ) {
+      request.log.debug(
+        { event: result.data.event },
+        'Ignoring Viber callback outside MVP event processing',
+      );
+      await reply.code(200).send();
+      return;
+    }
+
     if (!options.db) {
       request.log.error('Viber webhook database is not configured');
       await reply.code(500).send();
