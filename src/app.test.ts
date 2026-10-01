@@ -363,12 +363,14 @@ describe('Viber webhook', () => {
       const body = JSON.stringify({
         event: 'subscribed',
         timestamp: 1457764197627,
-        message_token: 241256543215,
         user: {
           id: '01234567890A==',
           language: 'be',
         },
-      });
+      }).replace(
+        '"user"',
+        '"message_token":5741311803571721087,"user"',
+      );
 
       const response = await app.inject({
         method: 'POST',
@@ -382,6 +384,13 @@ describe('Viber webhook', () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.body).toBe('');
+
+      const eventResult = await requireTestDb().query(
+        'SELECT provider_event_id FROM conversation_events',
+      );
+      expect(eventResult.rows).toEqual([
+        { provider_event_id: '5741311803571721087' },
+      ]);
 
       await app.close();
     },
