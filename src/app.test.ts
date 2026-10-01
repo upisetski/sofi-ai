@@ -132,6 +132,28 @@ describe('Viber webhook', () => {
     await app.close();
   });
 
+  it('accepts Viber webhook availability callback with a long message token', async () => {
+    process.env.VIBER_AUTH_TOKEN = authToken;
+    const app = buildApp();
+    const body =
+      '{"event":"webhook","timestamp":1457764197627,"message_token":5741311803571721087}';
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/viber/webhook',
+      headers: {
+        'content-type': 'application/json',
+        'x-viber-content-signature': sign(body),
+      },
+      payload: body,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toBe('');
+
+    await app.close();
+  });
+
   it.each([
     [
       'webhook',
@@ -335,15 +357,8 @@ describe('Viber webhook', () => {
       const app = buildApp({
         db: requireTestDb(),
       });
-      const body = JSON.stringify({
-        event: 'subscribed',
-        timestamp: 1457764197627,
-        message_token: 241256543215,
-        user: {
-          id: '01234567890A==',
-          language: 'be',
-        },
-      });
+      const body =
+        '{"event":"subscribed","timestamp":1457764197627,"message_token":5741311803571721087,"user":{"id":"01234567890A==","language":"be"}}';
 
       const response = await app.inject({
         method: 'POST',
@@ -357,6 +372,13 @@ describe('Viber webhook', () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.body).toBe('');
+
+      const eventResult = await requireTestDb().query(
+        'SELECT provider_event_id FROM conversation_events',
+      );
+      expect(eventResult.rows).toEqual([
+        { provider_event_id: '5741311803571721087' },
+      ]);
 
       await app.close();
     },

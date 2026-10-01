@@ -58,16 +58,20 @@ For every new feature:
 9. Add or update tests for behavior that changed.
 10. Update durable product or architecture documentation only when the feature changes those facts or decisions.
 11. Add an ADR in docs/decisions/ when a significant architectural decision is made or changed.
-12. Run the full local checks:
+12. Before committing, format the changed files with Prettier:
+   - run `npx prettier --write <changed-files>`
+   - then run `npm run format:check` to verify there are no remaining formatting issues.
+   - Do this before the full CI checks so formatting failures are caught before the commit reaches GitHub.
+13. Run the full local checks:
    - npm run typecheck
    - npm run lint
    - npm run format:check
    - npm test
    - npm run build
    - docker build -t sofi-ai:ci .
-13. Create a focused branch and PR containing one coherent feature.
-14. In the PR, summarize the feature, link its feature specification, and describe testing and any documentation/ADR changes.
-15. Do not merge unless CI passes.
+14. Create a focused branch and PR containing one coherent feature.
+15. In the PR, summarize the feature, link its feature specification, and describe testing and any documentation/ADR changes.
+16. Do not merge unless CI passes.
 
 ### Feature specification rules
 

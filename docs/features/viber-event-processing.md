@@ -52,6 +52,7 @@ Rapid-message debounce is intentionally not implemented by this feature.
 
 - A valid in-scope callback must be persisted before the webhook returns success; valid Viber availability/status callbacks outside the processing scope are acknowledged without persistence.
 - The original validated callback payload must be retained as durable event data.
+- Viber `message_token` values must be preserved as decimal strings because the provider can send values larger than JavaScript's safe integer range.
 - Duplicate delivery of the same provider event must be a no-op.
 - Events for the same conversation must be selected for processing by `timestamp ASC`, then a deterministic database key.
 - Provider `timestamp` is the event ordering signal; webhook receipt time is retained separately for diagnostics.
@@ -73,6 +74,7 @@ Rapid-message debounce is intentionally not implemented by this feature.
 - [ ] A valid `subscribed` callback is stored and updates the user's subscription state when processed.
 - [ ] A valid `unsubscribed` callback is stored and updates the user's subscription state when processed.
 - [ ] A valid `message` callback is stored and produces exactly one inbound message.
+- [ ] A callback with a `message_token` larger than JavaScript's safe integer range is accepted without truncation.
 - [ ] Re-delivery of an already accepted callback does not create another event or message.
 - [ ] Events for one conversation are processed in ascending Viber `timestamp` order.
 - [ ] Equal timestamps have deterministic ordering.
