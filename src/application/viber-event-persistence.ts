@@ -62,16 +62,19 @@ function getProviderEventId(callback: ViberCallback): string {
   return String(callback.message_token);
 }
 
+function isTextMessage(callback: ViberCallback): boolean {
+  return callback.event === 'message' && callback.message.type === 'text';
+}
+
 function getAvailableAt(
-  eventType: string,
+  debounceTextMessage: boolean,
   receivedAt: Date,
   reorderDelayMs: number,
   messageDebounceMs: number,
 ): Date {
-  const delayMs =
-    eventType === 'message'
-      ? Math.max(reorderDelayMs, messageDebounceMs)
-      : reorderDelayMs;
+  const delayMs = debounceTextMessage
+    ? Math.max(reorderDelayMs, messageDebounceMs)
+    : reorderDelayMs;
 
   return new Date(receivedAt.getTime() + delayMs);
 }
@@ -145,9 +148,10 @@ export async function acceptViberCallback(
       };
     }
 
+    const textMessage = isTextMessage(callback);
     let shouldSendThinking = false;
 
-    if (eventType === 'message') {
+    if (textMessage) {
       const pendingMessage = await client.query<{ exists: boolean }>(
         `
           SELECT EXISTS (
@@ -156,6 +160,7 @@ export async function acceptViberCallback(
             WHERE conversation_id = $1
               AND position > $2
               AND event_type = 'message'
+              AND payload->'message'->>'type' = 'text'
           ) AS exists
         `,
         [conversation.id, conversation.last_processed_position],
@@ -207,7 +212,12 @@ export async function acceptViberCallback(
     await wakeJob(
       client,
       conversation.id,
-      getAvailableAt(eventType, receivedAt, reorderDelayMs, messageDebounceMs),
+      getAvailableAt(
+        textMessage,
+        receivedAt,
+        reorderDelayMs,
+        messageDebounceMs,
+      ),
     );
 
     return {
