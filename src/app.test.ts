@@ -430,7 +430,7 @@ describe('Viber webhook', () => {
       );
       expect(jobResult.rows).toEqual([{ status: 'pending' }]);
 
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).not.toHaveBeenCalled();
 
       vi.unstubAllGlobals();
       await app.close();
@@ -438,7 +438,7 @@ describe('Viber webhook', () => {
   );
 
   it.skipIf(!databaseUrl)(
-    'deduplicates an already accepted callback',
+    'deduplicates an already accepted callback without responding',
     async () => {
       process.env.VIBER_AUTH_TOKEN = authToken;
       const fetchMock = vi.fn().mockResolvedValue(
