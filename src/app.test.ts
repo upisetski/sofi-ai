@@ -132,6 +132,31 @@ describe('Viber webhook', () => {
     await app.close();
   });
 
+  it('accepts Viber webhook availability callback with a long message token', async () => {
+    process.env.VIBER_AUTH_TOKEN = authToken;
+    const app = buildApp();
+    const body = JSON.stringify({
+      event: 'webhook',
+      timestamp: 1457764197627,
+      message_token: 241256543215,
+    }).replace('241256543215', '5741311803571721087');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/viber/webhook',
+      headers: {
+        'content-type': 'application/json',
+        'x-viber-content-signature': sign(body),
+      },
+      payload: body,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toBe('');
+
+    await app.close();
+  });
+
   it.each([
     [
       'webhook',
