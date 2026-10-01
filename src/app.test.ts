@@ -14,6 +14,7 @@ import { buildApp } from './app.js';
 import { createDb, type Db } from './db/client.js';
 import { migrate } from './db/migrations.js';
 import {
+  getEcho,
   getThinking,
   getWelcome,
   getWelcomeText,
@@ -97,6 +98,11 @@ describe('localization', () => {
     expect(getThinking('en', 'hello').thinking).toBe(
       'Thinking about your message:\n\nhello',
     );
+    expect(getEcho('ru', ['first', 'second']).echo).toBe(
+      'Эхо:\n\nfirst\n\nsecond',
+    );
+    expect(getEcho('be', ['hello']).echo).toBe('Рэха:\n\nhello');
+    expect(getEcho('en', ['hello']).echo).toBe('Echo:\n\nhello');
 
     const longMessage = getThinking('en', '🙂'.repeat(1001)).thinking;
     expect([
@@ -282,7 +288,7 @@ describe('Viber webhook', () => {
       const app = buildApp({
         db: requireTestDb(),
         reorderDelayMs: 0,
-        messageDebounceMs: 1500,
+        messageDebounceMs: 10000,
       });
 
       const firstBody = JSON.stringify({
