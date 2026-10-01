@@ -70,8 +70,8 @@ For every new feature:
    - npm run build
    - docker build -t sofi-ai:ci .
 14. Create a focused branch and PR containing one coherent feature.
-14. In the PR, summarize the feature, link its feature specification, and describe testing and any documentation/ADR changes.
-15. Do not merge unless CI passes.
+15. In the PR, summarize the feature, link its feature specification, and describe testing and any documentation/ADR changes.
+16. Do not merge unless CI passes.
 
 ### Feature specification rules
 
