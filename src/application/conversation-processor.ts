@@ -119,7 +119,7 @@ export async function processConversation(
       events: processed,
       textMessages,
       userId: conversation.provider_user_id,
-      language: conversation.locale ?? undefined,
+      ...(conversation.locale ? { language: conversation.locale } : {}),
     };
   });
 }
