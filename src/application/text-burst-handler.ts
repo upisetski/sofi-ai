@@ -5,7 +5,7 @@ export async function handleTextBurstComplete(
   client: ViberClient,
   input: {
     userId: string;
-    language: string | undefined;
+    language?: string;
     messages: string[];
   },
 ): Promise<void> {
