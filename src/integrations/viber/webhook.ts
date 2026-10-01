@@ -14,6 +14,20 @@ import { viberCallbackSchema } from './schemas.js';
 
 const signatureHeader = 'x-viber-content-signature';
 
+/**
+ * Viber message_token is an integer in the provider payload, but it can be
+ * larger than JavaScript's safe integer range. Convert that field to a string
+ * before JSON.parse so the identifier is preserved exactly.
+ */
+function parseViberPayload(body: string): unknown {
+  const normalizedBody = body.replace(
+    /(\\"message_token\\"\\s*:\\s*)(\\d+)(?=\\s*[,}])/g,
+    '$1"$2"',
+  );
+
+  return JSON.parse(normalizedBody);
+}
+
 export function verifyViberSignature(
   body: string,
   signature: string | undefined,
@@ -68,7 +82,7 @@ export function createViberWebhookHandler(
 
     let payload: unknown;
     try {
-      payload = JSON.parse(body);
+      payload = parseViberPayload(body);
     } catch (error) {
       request.log.warn(
         { error: error instanceof Error ? error.message : 'unknown error' },
