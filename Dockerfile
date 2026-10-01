@@ -3,11 +3,11 @@ WORKDIR /app
 
 FROM base AS deps
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm install --omit=dev --ignore-scripts
 
 FROM base AS build
 COPY package*.json ./
-RUN npm install
+RUN npm install --ignore-scripts
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build

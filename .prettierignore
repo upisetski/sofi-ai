@@ -1,2 +1,4 @@
 AGENTS.md
 docs/**/*.md
+scripts/pre-commit.mjs
+scripts/setup-git-hooks.mjs

@@ -58,10 +58,11 @@ For every new feature:
 9. Add or update tests for behavior that changed.
 10. Update durable product or architecture documentation only when the feature changes those facts or decisions.
 11. Add an ADR in docs/decisions/ when a significant architectural decision is made or changed.
-12. Before committing, format the changed files with Prettier:
-   - run `npx prettier --write <changed-files>`
-   - then run `npm run format:check` to verify there are no remaining formatting issues.
-   - Do this before the full CI checks so formatting failures are caught before the commit reaches GitHub.
+12. Before committing, rely on the repository pre-commit hook to auto-format and auto-fix lint errors in staged files.
+   - The hook is installed automatically by `npm install` through the `prepare` script.
+   - It runs Prettier and ESLint `--fix` on staged files and stages those fixes.
+   - If a file has both staged and unstaged changes, the hook stops rather than risking unrelated changes being staged.
+   - Use `npm run format:fix` or `npm run lint:fix` for an explicit full-tree fix when needed.
 13. Run the full local checks:
    - npm run typecheck
    - npm run lint

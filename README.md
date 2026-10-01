@@ -94,12 +94,21 @@ npm run build
 npm start
 npm run typecheck
 npm run lint
+npm run lint:fix
 npm run format
+npm run format:fix
 npm run format:check
+npm run check
 npm test
 npm run test:watch
 npm run db:migrate
 ```
+
+## Git hooks
+
+Running `npm install` configures the repository to use the committed `.githooks/pre-commit` hook. Before each commit it automatically runs Prettier and ESLint with `--fix` on staged files and stages the fixes. If a file has both staged and unstaged changes, the hook stops to avoid accidentally staging unrelated edits.
+
+The CI pipeline remains check-only: it verifies formatting and linting but does not modify the branch.
 
 ## Project structure
 
