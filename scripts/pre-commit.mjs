@@ -53,7 +53,9 @@ if (overlapping.length > 0) {
 const prettierFiles = staged.filter((file) =>
   /\.(?:c|m)?js$|\.json$|\.md$|\.ya?ml$/.test(file),
 );
-const eslintFiles = staged.filter((file) => /\.(?:c|m)?js$|\.tsx?$/.test(file));
+const eslintFiles = staged.filter((file) =>
+  /\.(?:c|m)?js$|\.tsx?$/.test(file),
+);
 
 const prettierBin = resolve(
   root,
