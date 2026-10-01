@@ -13,9 +13,7 @@ export interface TextBurstCompleteInput {
 export interface WorkerOptions {
   pollIntervalMs?: number;
   staleAfterMs?: number;
-  onTextBurstComplete?: (
-    input: TextBurstCompleteInput,
-  ) => Promise<void>;
+  onTextBurstComplete?: (input: TextBurstCompleteInput) => Promise<void>;
 }
 
 export class ConversationWorker {
@@ -80,9 +78,7 @@ export class ConversationWorker {
             await this.onTextBurstComplete({
               userId: processed.userId,
               messages: processed.textMessages,
-              ...(processed.language
-                ? { language: processed.language }
-                : {}),
+              ...(processed.language ? { language: processed.language } : {}),
             });
           } catch (error) {
             console.error('Failed to send text burst echo', error);
