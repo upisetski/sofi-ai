@@ -23,7 +23,7 @@ Viber's current Bot REST API does not expose a typing-indicator operation, so no
 - Resetting the debounce deadline for each accepted text message.
 - One localized response after the quiet period.
 - Keeping rapid messages as separate durable events and messages.
-- Collecting text messages from the completed burst for the echo response.
+- Collecting text messages from the completed burst for the final response.
 
 ### Out of scope
 
@@ -37,11 +37,11 @@ Viber's current Bot REST API does not expose a typing-indicator operation, so no
 
 - The default text debounce must be 10,000 ms.
 - An accepted text message must move the conversation job deadline to at least its received time plus the debounce period.
-- A text message arriving during an existing burst must not trigger another thinking acknowledgement.
-- A new text burst after the previous burst has completed must trigger a new thinking acknowledgement.
-- The final echo must be sent only after the conversation job reaches a completed state for the burst.
-- The echo must contain the text messages from that burst in timestamp processing order.
-- The echo must use the conversation locale and the existing Viber text-message client.
+- A text message arriving during an existing burst must only extend the response deadline.
+- A new text burst after the previous burst has completed must schedule a new response.
+- The final response must be sent only after the conversation job reaches a completed state for the burst.
+- The response must contain the text messages from that burst in timestamp processing order.
+- The response must use the conversation locale and the existing Viber text-message client.
 - Full message content must not be logged.
 
 ## Acceptance criteria
@@ -62,7 +62,7 @@ The existing PostgreSQL job row is the debounce state:
 - `jobs.available_at` is extended with `GREATEST(current, latest_message_received_at + debounce)`.
 - The worker only claims jobs whose `available_at` has passed.
 - Processing remains serialized per conversation.
-- The worker emits the echo after the job is complete.
+- The worker emits the response after the job is complete.
 
 The default can still be overridden with `MESSAGE_DEBOUNCE_MS` for development/testing.
 
@@ -93,7 +93,7 @@ The existing raw Viber callback and normalized message records remain the source
 
 ## Open questions
 
-- Replace the echo with AI generation when the AI response pipeline is implemented.
+- Replace the final response with AI generation when the AI response pipeline is implemented.
 
 ## Implementation checklist
 
