@@ -11,7 +11,6 @@ export interface AcceptedEvent {
   eventId: string;
   conversationId: string;
   duplicate: boolean;
-  shouldSendThinking: boolean;
 }
 
 function getUser(callback: ViberCallback): {
@@ -144,30 +143,10 @@ export async function acceptViberCallback(
         eventId: existing.rows[0].id,
         conversationId: conversation.id,
         duplicate: true,
-        shouldSendThinking: false,
       };
     }
 
     const textMessage = isTextMessage(callback);
-    let shouldSendThinking = false;
-
-    if (textMessage) {
-      const pendingMessage = await client.query<{ exists: boolean }>(
-        `
-          SELECT EXISTS (
-            SELECT 1
-            FROM conversation_events
-            WHERE conversation_id = $1
-              AND position > $2
-              AND event_type = 'message'
-              AND payload->'message'->>'type' = 'text'
-          ) AS exists
-        `,
-        [conversation.id, conversation.last_processed_position],
-      );
-
-      shouldSendThinking = !pendingMessage.rows[0]?.exists;
-    }
 
     const nextPosition = Number(conversation.last_event_position) + 1;
     const eventResult = await client.query<{ id: string }>(
@@ -224,7 +203,6 @@ export async function acceptViberCallback(
       eventId: insertedEvent.id,
       conversationId: conversation.id,
       duplicate: false,
-      shouldSendThinking,
     };
   });
 }
