@@ -132,6 +132,67 @@ describe('Viber webhook', () => {
     await app.close();
   });
 
+  it.each([
+    [
+      'webhook',
+      {
+        event: 'webhook',
+        timestamp: 1457764197627,
+        message_token: 241256543215,
+      },
+    ],
+    [
+      'delivered',
+      {
+        event: 'delivered',
+        timestamp: 1457764197627,
+        message_token: 241256543216,
+        user_id: '01234567890A==',
+      },
+    ],
+    [
+      'seen',
+      {
+        event: 'seen',
+        timestamp: 1457764197627,
+        message_token: 241256543217,
+        user_id: '01234567890A==',
+      },
+    ],
+    [
+      'failed',
+      {
+        event: 'failed',
+        timestamp: 1457764197627,
+        message_token: 241256543218,
+        user_id: '01234567890A==',
+        desc: 'failure description',
+      },
+    ],
+  ])(
+    'acknowledges the %s callback without database processing',
+    async (_event, payload) => {
+      process.env.VIBER_AUTH_TOKEN = authToken;
+      const app = buildApp();
+
+      const body = JSON.stringify(payload);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/viber/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-viber-content-signature': sign(body),
+        },
+        payload: body,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toBe('');
+
+      await app.close();
+    },
+  );
+
   it.skipIf(!databaseUrl)(
     'sends a localized welcome for conversation_started',
     async () => {
