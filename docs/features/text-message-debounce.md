@@ -1,4 +1,4 @@
-# Feature: Text message debounce and echo
+# Feature: Text message debounce and response
 
 ## Goal
 
@@ -8,10 +8,10 @@ Make rapid text messages feel like one conversational turn instead of triggering
 
 When a user starts a burst of text messages:
 
-1. Sofi immediately sends one localized thinking acknowledgement for the first message.
-2. Each subsequent text message resets the response timer.
-3. While the timer is running, Sofi does not send another acknowledgement.
-4. When 10 seconds have passed without another text message, Sofi sends one localized echo containing the text messages from the burst.
+1. Sofi does not send a response immediately after the first text message.
+2. Each subsequent text message extends the response deadline.
+3. While the timer is running, Sofi sends no intermediate response.
+4. When 10 seconds have passed without another text message, Sofi sends one localized response containing the text messages from the burst.
 
 Viber's current Bot REST API does not expose a typing-indicator operation, so no typing signal is sent during the waiting period. The supported outbound operation remains `send_message`.
 
@@ -20,9 +20,8 @@ Viber's current Bot REST API does not expose a typing-indicator operation, so no
 ### In scope
 
 - 10-second configurable text-message debounce.
-- One localized thinking acknowledgement at the start of a burst.
 - Resetting the debounce deadline for each accepted text message.
-- One localized echo after the quiet period.
+- One localized response after the quiet period.
 - Keeping rapid messages as separate durable events and messages.
 - Collecting text messages from the completed burst for the echo response.
 
@@ -30,7 +29,7 @@ Viber's current Bot REST API does not expose a typing-indicator operation, so no
 
 - AI generation.
 - Typing indicators.
-- Combining or rewriting user messages before the AI layer exists.
+- AI generation or rewriting user messages before the AI layer exists.
 - Redis/BullMQ or another queue.
 - A dedicated debounce table.
 
@@ -47,13 +46,12 @@ Viber's current Bot REST API does not expose a typing-indicator operation, so no
 
 ## Acceptance criteria
 
-- [ ] The first text message receives one localized thinking acknowledgement.
-- [ ] A second text message in the same burst receives no additional thinking acknowledgement.
+- [ ] The first text message receives no immediate response.
 - [ ] The job deadline is extended by each subsequent text message.
-- [ ] No echo is sent before the 10-second quiet period after the latest message.
-- [ ] One echo is sent after the quiet period.
-- [ ] The echo contains all text messages from the burst in processing order.
-- [ ] A later burst starts a new thinking acknowledgement window.
+- [ ] No response is sent before the 10-second quiet period after the latest message.
+- [ ] One response is sent after the quiet period.
+- [ ] The response contains all text messages from the burst in processing order.
+- [ ] A later burst starts a new response window.
 - [ ] The implementation does not require a new database table.
 - [ ] Viber typing-indicator behavior is not assumed or emulated.
 
@@ -77,15 +75,15 @@ The existing raw Viber callback and normalized message records remain the source
 ## Observability
 
 - Keep existing callback and job-processing logs.
-- Echo delivery failures are logged as safe operational errors without message content.
+- Response delivery failures are logged as safe operational errors without message content.
 
 ## Testing
 
 - Integration: deadline extension for rapid messages.
 - Integration: no response before the latest debounce deadline.
-- Integration: one echo containing the whole text burst.
-- Existing webhook test: exactly one thinking acknowledgement for rapid messages.
-- Localization tests: echo text for supported locales and Unicode truncation.
+- Integration: one response containing the whole text burst.
+- Existing webhook test: no immediate response for rapid messages.
+- Localization tests: final response text for supported locales and Unicode truncation.
 
 ## Dependencies
 
