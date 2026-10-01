@@ -176,7 +176,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
     expect(messages.rows[0]?.count).toBe(1);
   });
 
-  it('does not create duplicate events or acknowledgements for duplicate delivery', async () => {
+  it('does not create duplicate events for duplicate delivery', async () => {
     const accepted = await acceptViberCallback(
       db!,
       message(1000, 'token-1', 'hello'),
