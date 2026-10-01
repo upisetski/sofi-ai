@@ -5,11 +5,13 @@ import type { ViberCallback } from '../integrations/viber/schemas.js';
 
 const provider = 'viber';
 const jobType = 'process_conversation';
+const defaultMessageDebounceMs = 1500;
 
 export interface AcceptedEvent {
   eventId: string;
   conversationId: string;
   duplicate: boolean;
+  shouldSendThinking: boolean;
 }
 
 function getUser(callback: ViberCallback): {
@@ -60,11 +62,29 @@ function getProviderEventId(callback: ViberCallback): string {
   return String(callback.message_token);
 }
 
+function isTextMessage(callback: ViberCallback): boolean {
+  return callback.event === 'message' && callback.message.type === 'text';
+}
+
+function getAvailableAt(
+  debounceTextMessage: boolean,
+  receivedAt: Date,
+  reorderDelayMs: number,
+  messageDebounceMs: number,
+): Date {
+  const delayMs = debounceTextMessage
+    ? Math.max(reorderDelayMs, messageDebounceMs)
+    : reorderDelayMs;
+
+  return new Date(receivedAt.getTime() + delayMs);
+}
+
 export async function acceptViberCallback(
   db: Db,
   callback: ViberCallback,
   receivedAt = new Date(),
   reorderDelayMs = 1000,
+  messageDebounceMs = defaultMessageDebounceMs,
 ): Promise<AcceptedEvent> {
   const user = getUser(callback);
   if (!user) {
@@ -89,6 +109,7 @@ export async function acceptViberCallback(
     const conversationResult = await client.query<{
       id: string;
       last_event_position: string;
+      last_processed_position: string;
     }>(
       `
         INSERT INTO conversations (user_id, locale)
@@ -97,7 +118,7 @@ export async function acceptViberCallback(
         DO UPDATE SET
           locale = COALESCE(EXCLUDED.locale, conversations.locale),
           updated_at = NOW()
-        RETURNING id, last_event_position
+        RETURNING id, last_event_position, last_processed_position
       `,
       [userId, user.language ?? null],
     );
@@ -119,12 +140,33 @@ export async function acceptViberCallback(
     );
 
     if (existing.rows[0]) {
-      await wakeJob(client, conversation.id, reorderDelayMs, receivedAt);
       return {
         eventId: existing.rows[0].id,
         conversationId: conversation.id,
         duplicate: true,
+        shouldSendThinking: false,
       };
+    }
+
+    const textMessage = isTextMessage(callback);
+    let shouldSendThinking = false;
+
+    if (textMessage) {
+      const pendingMessage = await client.query<{ exists: boolean }>(
+        `
+          SELECT EXISTS (
+            SELECT 1
+            FROM conversation_events
+            WHERE conversation_id = $1
+              AND position > $2
+              AND event_type = 'message'
+              AND payload->'message'->>'type' = 'text'
+          ) AS exists
+        `,
+        [conversation.id, conversation.last_processed_position],
+      );
+
+      shouldSendThinking = !pendingMessage.rows[0]?.exists;
     }
 
     const nextPosition = Number(conversation.last_event_position) + 1;
@@ -167,12 +209,22 @@ export async function acceptViberCallback(
       [nextPosition, conversation.id],
     );
 
-    await wakeJob(client, conversation.id, reorderDelayMs, receivedAt);
+    await wakeJob(
+      client,
+      conversation.id,
+      getAvailableAt(
+        textMessage,
+        receivedAt,
+        reorderDelayMs,
+        messageDebounceMs,
+      ),
+    );
 
     return {
       eventId: insertedEvent.id,
       conversationId: conversation.id,
       duplicate: false,
+      shouldSendThinking,
     };
   });
 }
@@ -180,11 +232,8 @@ export async function acceptViberCallback(
 async function wakeJob(
   client: PoolClient,
   conversationId: string,
-  reorderDelayMs: number,
-  now: Date,
+  availableAt: Date,
 ): Promise<void> {
-  const availableAt = new Date(now.getTime() + reorderDelayMs);
-
   await client.query(
     `
       INSERT INTO jobs (
@@ -197,10 +246,7 @@ async function wakeJob(
           WHEN jobs.status IN ('completed', 'failed') THEN 'pending'
           ELSE jobs.status
         END,
-        available_at = CASE
-          WHEN jobs.status = 'processing' THEN jobs.available_at
-          ELSE GREATEST(jobs.available_at, EXCLUDED.available_at)
-        END,
+        available_at = GREATEST(jobs.available_at, EXCLUDED.available_at),
         completed_at = CASE
           WHEN jobs.status IN ('completed', 'failed') THEN NULL
           ELSE jobs.completed_at

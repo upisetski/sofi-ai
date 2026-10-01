@@ -15,6 +15,7 @@ try {
   const app = buildApp({
     db,
     reorderDelayMs: env.REORDER_DELAY_MS,
+    messageDebounceMs: env.MESSAGE_DEBOUNCE_MS,
   });
 
   await app.listen({

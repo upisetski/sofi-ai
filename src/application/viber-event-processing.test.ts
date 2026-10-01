@@ -2,8 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createDb, type Db } from '../db/client.js';
 import { migrate } from '../db/migrations.js';
-import { acceptViberCallback } from './viber-event-persistence.js';
 import { processConversation } from './conversation-processor.js';
+import { acceptViberCallback } from './viber-event-persistence.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 let db: Db | undefined;
@@ -47,11 +47,13 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
       message(2000, 'token-2', 'second'),
       new Date('2026-01-01T00:00:02Z'),
       0,
+      0,
     );
     await acceptViberCallback(
       db!,
       message(1000, 'token-1', 'first'),
       new Date('2026-01-01T00:00:03Z'),
+      0,
       0,
     );
 
@@ -76,11 +78,13 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
       message(1000, 'token-1', 'first'),
       new Date('2026-01-01T00:00:01Z'),
       0,
+      0,
     );
     const second = await acceptViberCallback(
       db!,
       message(1000, 'token-2', 'second'),
       new Date('2026-01-01T00:00:02Z'),
+      0,
       0,
     );
 
@@ -104,6 +108,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
       },
       new Date('2026-01-01T00:00:01Z'),
       0,
+      0,
     );
 
     await acceptViberCallback(
@@ -116,6 +121,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
       },
       new Date('2026-01-01T00:00:02Z'),
       0,
+      0,
     );
 
     await acceptViberCallback(
@@ -127,6 +133,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
         user_id: user.id,
       },
       new Date('2026-01-01T00:00:03Z'),
+      0,
       0,
     );
 
@@ -153,6 +160,7 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
       message(1000, 'token-1', 'hello'),
       new Date(),
       0,
+      0,
     );
 
     const [first, second] = await Promise.all([
@@ -168,21 +176,25 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
     expect(messages.rows[0]?.count).toBe(1);
   });
 
-  it('does not create duplicate events or messages for duplicate delivery', async () => {
+  it('does not create duplicate events or acknowledgements for duplicate delivery', async () => {
     const accepted = await acceptViberCallback(
       db!,
       message(1000, 'token-1', 'hello'),
       new Date(),
       0,
+      1500,
     );
     const duplicate = await acceptViberCallback(
       db!,
       message(1000, 'token-1', 'hello'),
       new Date(),
       0,
+      1500,
     );
 
+    expect(accepted.shouldSendThinking).toBe(true);
     expect(duplicate.duplicate).toBe(true);
+    expect(duplicate.shouldSendThinking).toBe(false);
 
     await processConversation(db!, accepted.conversationId);
 
@@ -194,5 +206,118 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
     );
     expect(events.rows[0]?.count).toBe(1);
     expect(messages.rows[0]?.count).toBe(1);
+  });
+
+  it('debounces rapid messages and starts a new acknowledgement window after processing', async () => {
+    const firstReceivedAt = new Date('2026-01-01T00:00:00Z');
+    const secondReceivedAt = new Date('2026-01-01T00:00:00.500Z');
+
+    const first = await acceptViberCallback(
+      db!,
+      message(1000, 'token-1', 'first'),
+      firstReceivedAt,
+      1000,
+      1500,
+    );
+
+    const second = await acceptViberCallback(
+      db!,
+      message(1100, 'token-2', 'second'),
+      secondReceivedAt,
+      1000,
+      1500,
+    );
+
+    expect(first.shouldSendThinking).toBe(true);
+    expect(second.shouldSendThinking).toBe(false);
+
+    const job = await db!.query<{ available_at: Date }>(
+      'SELECT available_at FROM jobs WHERE conversation_id = $1',
+      [first.conversationId],
+    );
+    expect(job.rows[0]?.available_at.toISOString()).toBe(
+      '2026-01-01T00:00:02.000Z',
+    );
+
+    await processConversation(db!, first.conversationId);
+
+    const third = await acceptViberCallback(
+      db!,
+      message(1200, 'token-3', 'third'),
+      new Date('2026-01-01T00:00:05Z'),
+      1000,
+      1500,
+    );
+
+    expect(third.shouldSendThinking).toBe(true);
+
+    await processConversation(db!, first.conversationId);
+
+    const messages = await db!.query(
+      'SELECT content FROM messages ORDER BY id ASC',
+    );
+    expect(messages.rows).toEqual([
+      { content: 'first' },
+      { content: 'second' },
+      { content: 'third' },
+    ]);
+  });
+
+  it('does not debounce non-text messages', async () => {
+    const accepted = await acceptViberCallback(
+      db!,
+      {
+        event: 'message',
+        timestamp: 1000,
+        message_token: 'picture-1',
+        sender: user,
+        message: {
+          type: 'picture',
+          text: 'caption',
+          media: 'https://example.com/image.jpg',
+        },
+      },
+      new Date('2026-01-01T00:00:00Z'),
+      1000,
+      1500,
+    );
+
+    expect(accepted.shouldSendThinking).toBe(false);
+
+    const job = await db!.query<{ available_at: Date }>(
+      'SELECT available_at FROM jobs WHERE conversation_id = $1',
+      [accepted.conversationId],
+    );
+    expect(job.rows[0]?.available_at.toISOString()).toBe(
+      '2026-01-01T00:00:01.000Z',
+    );
+  });
+
+  it('does not suppress the first message because a lifecycle event is pending', async () => {
+    const started = await acceptViberCallback(
+      db!,
+      {
+        event: 'conversation_started',
+        timestamp: 1000,
+        message_token: 'start',
+        type: 'open',
+        user,
+        subscribed: false,
+      },
+      new Date('2026-01-01T00:00:00Z'),
+      1000,
+      1500,
+    );
+
+    const messageEvent = await acceptViberCallback(
+      db!,
+      message(1100, 'token-1', 'hello'),
+      new Date('2026-01-01T00:00:00.200Z'),
+      1000,
+      1500,
+    );
+
+    expect(messageEvent.conversationId).toBe(started.conversationId);
+    expect(messageEvent.shouldSendThinking).toBe(true);
   });
 });

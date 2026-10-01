@@ -14,6 +14,7 @@ import { buildApp } from './app.js';
 import { createDb, type Db } from './db/client.js';
 import { migrate } from './db/migrations.js';
 import {
+  getThinking,
   getWelcome,
   getWelcomeText,
   resolveLocale,
@@ -87,6 +88,20 @@ describe('localization', () => {
     expect(getWelcomeText('ru')).toContain('Я Софи');
     expect(getWelcomeText('be')).toContain('Я Сафі');
     expect(getWelcomeText('en')).toContain('Sofi');
+    expect(getThinking('ru', 'hello').thinking).toBe(
+      'Думаю над твоим сообщением:\n\nhello',
+    );
+    expect(getThinking('be', 'hello').thinking).toBe(
+      'Думаю над тваім паведамленнем:\n\nhello',
+    );
+    expect(getThinking('en', 'hello').thinking).toBe(
+      'Thinking about your message:\n\nhello',
+    );
+
+    const longMessage = getThinking('en', '🙂'.repeat(1001)).thinking;
+    expect([
+      ...longMessage.slice('Thinking about your message:\n\n'.length),
+    ]).toHaveLength(1000);
   });
 });
 
@@ -162,6 +177,89 @@ describe('Viber webhook', () => {
         sender: { name: getWelcome('be').senderName },
         type: 'text',
         text: getWelcome('be').welcome,
+      });
+
+      vi.unstubAllGlobals();
+      await app.close();
+    },
+  );
+
+  it.skipIf(!databaseUrl)(
+    'sends one localized thinking acknowledgement for rapid messages',
+    async () => {
+      process.env.VIBER_AUTH_TOKEN = authToken;
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ status: 0, status_message: 'ok' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const app = buildApp({
+        db: requireTestDb(),
+        reorderDelayMs: 0,
+        messageDebounceMs: 1500,
+      });
+
+      const firstBody = JSON.stringify({
+        event: 'message',
+        timestamp: 1457764197627,
+        message_token: 241256543217,
+        sender: {
+          id: '01234567890A==',
+          language: 'be',
+        },
+        message: {
+          type: 'text',
+          text: 'hello',
+        },
+      });
+
+      const secondBody = JSON.stringify({
+        event: 'message',
+        timestamp: 1457764198627,
+        message_token: 241256543218,
+        sender: {
+          id: '01234567890A==',
+          language: 'be',
+        },
+        message: {
+          type: 'text',
+          text: 'how are you?',
+        },
+      });
+
+      const first = await app.inject({
+        method: 'POST',
+        url: '/viber/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-viber-content-signature': sign(firstBody),
+        },
+        payload: firstBody,
+      });
+
+      const second = await app.inject({
+        method: 'POST',
+        url: '/viber/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-viber-content-signature': sign(secondBody),
+        },
+        payload: secondBody,
+      });
+
+      expect(first.statusCode).toBe(200);
+      expect(second.statusCode).toBe(200);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      const request = fetchMock.mock.calls[0];
+      expect(JSON.parse(String(request?.[1]?.body))).toEqual({
+        receiver: '01234567890A==',
+        sender: { name: getThinking('be', 'hello').senderName },
+        type: 'text',
+        text: getThinking('be', 'hello').thinking,
       });
 
       vi.unstubAllGlobals();
@@ -268,6 +366,14 @@ describe('Viber webhook', () => {
     'deduplicates an already accepted callback',
     async () => {
       process.env.VIBER_AUTH_TOKEN = authToken;
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ status: 0, status_message: 'ok' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
       const app = buildApp({
         db: requireTestDb(),
       });
@@ -306,12 +412,14 @@ describe('Viber webhook', () => {
 
       expect(first.statusCode).toBe(200);
       expect(second.statusCode).toBe(200);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
 
       const events = await requireTestDb().query(
         'SELECT id FROM conversation_events',
       );
       expect(events.rowCount).toBe(1);
 
+      vi.unstubAllGlobals();
       await app.close();
     },
   );

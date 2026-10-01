@@ -10,6 +10,7 @@ const envSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   DATABASE_URL: z.string().min(1).optional(),
   REORDER_DELAY_MS: z.coerce.number().int().nonnegative().default(1000),
+  MESSAGE_DEBOUNCE_MS: z.coerce.number().int().nonnegative().default(1500),
   VIBER_AUTH_TOKEN: z.string().min(1),
   OPENROUTER_API_KEY: z.string().optional(),
   SENTRY_DSN: z.string().optional(),

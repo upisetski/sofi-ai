@@ -124,14 +124,69 @@ export class ConversationWorker {
   }
 
   private async finishJob(id: string): Promise<void> {
-    await this.db.query(
-      `
-        UPDATE jobs
-        SET status = 'completed', locked_at = NULL, completed_at = NOW()
-        WHERE id = $1
-      `,
-      [id],
-    );
+    const client = await this.db.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const jobResult = await client.query<{ conversation_id: string }>(
+        'SELECT conversation_id FROM jobs WHERE id = $1 FOR UPDATE',
+        [id],
+      );
+      const job = jobResult.rows[0];
+
+      if (!job) {
+        await client.query('COMMIT');
+        return;
+      }
+
+      const pendingEvents = await client.query<{ exists: boolean }>(
+        `
+          SELECT EXISTS (
+            SELECT 1
+            FROM conversation_events
+            WHERE conversation_id = $1
+              AND position > (
+                SELECT last_processed_position
+                FROM conversations
+                WHERE id = $1
+              )
+          ) AS exists
+        `,
+        [job.conversation_id],
+      );
+
+      const hasPendingEvents = Boolean(pendingEvents.rows[0]?.exists);
+
+      const deadlineResult = await client.query<{ available_at: Date }>(
+        'SELECT available_at FROM jobs WHERE id = $1',
+        [id],
+      );
+      const availableAt = deadlineResult.rows[0]?.available_at;
+      const deadlineExtended =
+        availableAt !== undefined && availableAt.getTime() > Date.now();
+
+      const status =
+        hasPendingEvents || deadlineExtended ? 'pending' : 'completed';
+
+      await client.query(
+        `
+          UPDATE jobs
+          SET status = $2,
+              locked_at = NULL,
+              completed_at = CASE WHEN $2 = 'completed' THEN NOW() ELSE NULL END
+          WHERE id = $1
+        `,
+        [id, status],
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   private async failJob(id: string, error: string): Promise<void> {
@@ -140,7 +195,7 @@ export class ConversationWorker {
         UPDATE jobs
         SET status = 'pending',
             locked_at = NULL,
-            available_at = NOW() + INTERVAL '1 second',
+            available_at = GREATEST(available_at, NOW() + INTERVAL '1 second'),
             last_error = $2
         WHERE id = $1
       `,

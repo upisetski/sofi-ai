@@ -7,6 +7,7 @@ import { createViberWebhookHandler } from './integrations/viber/webhook.js';
 export interface AppOptions {
   db?: Db;
   reorderDelayMs?: number;
+  messageDebounceMs?: number;
 }
 
 export function buildApp(options: AppOptions = {}) {

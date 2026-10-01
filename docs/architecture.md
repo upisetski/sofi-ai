@@ -21,7 +21,7 @@ src/
   application/        business use cases and orchestration
   localization/       user-facing translated copy and locale selection
   domain/             shared business rules/types when complexity justifies them
-  config/             environment/configuration
+  config/              environment/configuration
 ```
 
 ### Integrations
@@ -148,7 +148,7 @@ The worker initially runs in the same Node.js application.
 
 A conversation processing job is created or woken as part of accepting an inbound event. Processing uses PostgreSQL locking so one conversation is handled by at most one worker at a time, while unrelated conversations can run concurrently.
 
-Newly accepted events have a small configurable reordering delay before processing. This delay exists to account for callbacks arriving out of provider timestamp order. It is **not** message debounce.
+Newly accepted events have a small configurable reordering delay before processing. For text messages, the same job `available_at` field also provides the debounce timer: each accepted message can push the processing deadline forward, so a burst is processed only after the configured quiet period. The first text message in an unprocessed burst also receives one localized acknowledgement that echoes up to 1000 Unicode characters of that message. This is separate from provider event ordering and does not require a new debounce table.
 
 Move to Redis + BullMQ + dedicated workers only if actual workload makes that worthwhile.
 
@@ -176,7 +176,7 @@ Very late events are retained as durable history and surfaced operationally rath
 
 Conversation context is built from a bounded set of recent messages and the current processing unit. Do not send unbounded history to the model.
 
-Message debounce/coalescing is deliberately a separate feature and does not require a `conversation_turns` table initially.
+Rapid text-message debounce is implemented at the job scheduling layer. Messages remain separate durable events/messages; debounce changes only when the conversation processing job becomes eligible.
 
 ## AI Router
 
