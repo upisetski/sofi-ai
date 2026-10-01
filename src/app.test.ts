@@ -139,7 +139,10 @@ describe('Viber webhook', () => {
       event: 'webhook',
       timestamp: 1457764197627,
       message_token: 241256543215,
-    }).replace('241256543215', '5741311803571721087');
+    }).replace(
+      '241256543215',
+      '5741311803571721087',
+    );
 
     const response = await app.inject({
       method: 'POST',
