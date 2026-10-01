@@ -3,9 +3,13 @@ import type { ViberClient } from '../integrations/viber/client.js';
 
 export async function handleThinking(
   client: ViberClient,
-  input: { userId: string; language: string | undefined },
+  input: {
+    userId: string;
+    language: string | undefined;
+    message: string;
+  },
 ): Promise<void> {
-  const localizedThinking = getThinking(input.language);
+  const localizedThinking = getThinking(input.language, input.message);
 
   await client.sendTextMessage({
     receiver: input.userId,
