@@ -19,16 +19,11 @@ export interface WorkerOptions {
 export class ConversationWorker {
   private readonly pollIntervalMs: number;
   private readonly staleAfterMs: number;
-  private readonly onTextBurstComplete:
-    | WorkerOptions['onTextBurstComplete']
-    | undefined;
+  private readonly onTextBurstComplete: WorkerOptions['onTextBurstComplete'];
   private timer: NodeJS.Timeout | undefined;
   private running = false;
 
-  constructor(
-    private readonly db: Pool,
-    options: WorkerOptions = {},
-  ) {
+  constructor(private readonly db: Pool, options: WorkerOptions = {}) {
     this.pollIntervalMs = options.pollIntervalMs ?? 250;
     this.staleAfterMs = options.staleAfterMs ?? 60_000;
     this.onTextBurstComplete = options.onTextBurstComplete;
@@ -63,10 +58,7 @@ export class ConversationWorker {
       if (!job) return false;
 
       try {
-        const processed = await processConversation(
-          this.db,
-          job.conversationId,
-        );
+        const processed = await processConversation(this.db, job.conversationId);
         const completed = await this.finishJob(job.id);
 
         if (
