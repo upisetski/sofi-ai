@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import process from 'node:process';
 import { resolve } from 'node:path';
 
 const root = resolve('.');
@@ -38,21 +39,21 @@ const unstaged = new Set(
 
 const overlapping = staged.filter((file) => unstaged.has(file));
 if (overlapping.length > 0) {
-  console.error(
+  process.stderr.write(
     [
       'Pre-commit auto-fix stopped because these files have both staged and unstaged changes:',
       ...overlapping.map((file) => `  - ${file}`),
       '',
       'Stage the whole file before committing so formatting/lint fixes cannot accidentally stage unrelated edits.',
-    ].join('\n'),
+    ].join('\n') + '\n',
   );
   process.exit(1);
 }
 
 const prettierFiles = staged.filter((file) =>
-  /\.(c|m)?js|\.json$|\.md$|\.ya?ml$/.test(file),
+  /\.(?:c|m)?js$|\.json$|\.md$|\.ya?ml$/.test(file),
 );
-const eslintFiles = staged.filter((file) => /\.(c|m)?js$|\.tsx?$/.test(file));
+const eslintFiles = staged.filter((file) => /\.(?:c|m)?js$|\.tsx?$/.test(file));
 
 const prettierBin = resolve(
   root,
