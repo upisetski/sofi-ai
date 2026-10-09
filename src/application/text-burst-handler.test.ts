@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { AiGenerationError, type AiRouter } from './ai-router.js';
+import {
+  AiGenerationError,
+  createAiRouter,
+  type AiRouter,
+} from './ai-router.js';
+import { createOpenRouterClient } from '../integrations/openrouter/client.js';
 import { handleTextBurstComplete } from './text-burst-handler.js';
 
 describe('handleTextBurstComplete', () => {
@@ -35,6 +40,63 @@ describe('handleTextBurstComplete', () => {
     });
   });
 
+  it('connects a debounced burst to one mocked OpenRouter request and one Viber response', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { role: 'assistant', content: 'AI-generated reply' } }],
+          usage: { prompt_tokens: 14, completion_tokens: 5, total_tokens: 19, cost: 0.0001 },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    const aiRouter = createAiRouter(
+      {
+        models: { cheap_text: 'google/gemma-3-4b-it' },
+        maxOutputTokens: 512,
+        requestTimeoutMs: 30000,
+      },
+      createOpenRouterClient({ apiKey: 'test-openrouter-key', fetchImpl }),
+      { info: vi.fn(), error: vi.fn() },
+    );
+    const sendTextMessage = vi.fn().mockResolvedValue(undefined);
+
+    await handleTextBurstComplete(
+      { sendTextMessage },
+      aiRouter,
+      {
+        userId: 'user-integration',
+        language: 'be',
+        messages: ['Першае паведамленне', 'Другое паведамленне'],
+      },
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as {
+      model: string;
+      max_tokens: number;
+      messages: Array<{ role: string; content: string }>;
+      provider: { zdr: boolean; data_collection: string; allow_fallbacks: boolean };
+    };
+    expect(body.model).toBe('google/gemma-3-4b-it');
+    expect(body.max_tokens).toBe(512);
+    expect(body.provider).toEqual({
+      zdr: true,
+      data_collection: 'deny',
+      allow_fallbacks: false,
+    });
+    expect(body.messages[0]?.content).toContain('Belarusian');
+    expect(body.messages.slice(1)).toEqual([
+      { role: 'user', content: 'Першае паведамленне' },
+      { role: 'user', content: 'Другое паведамленне' },
+    ]);
+    expect(sendTextMessage).toHaveBeenCalledTimes(1);
+    expect(sendTextMessage).toHaveBeenCalledWith({
+      receiver: 'user-integration',
+      senderName: 'Сафі - AI-памочніца',
+      text: 'AI-generated reply',
+    });
+  });
   it('sends a localized temporary error rather than echoing messages when generation fails', async () => {
     const sendTextMessage = vi.fn().mockResolvedValue(undefined);
     const aiRouter: AiRouter = {
