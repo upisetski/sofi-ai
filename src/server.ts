@@ -17,7 +17,11 @@ const aiRouter = env.AI_ENABLED
         maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
         requestTimeoutMs: env.AI_REQUEST_TIMEOUT_MS,
       },
-      createOpenRouterClient({ apiKey: env.OPENROUTER_API_KEY }),
+      createOpenRouterClient({
+        ...(env.OPENROUTER_API_KEY
+          ? { apiKey: env.OPENROUTER_API_KEY }
+          : {}),
+      }),
     )
   : undefined;
 
