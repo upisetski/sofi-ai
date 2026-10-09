@@ -1,7 +1,4 @@
-import {
-  AiGenerationError,
-  type AiRouter,
-} from './ai-router.js';
+import { AiGenerationError, type AiRouter } from './ai-router.js';
 import {
   getAiTemporaryErrorResponse,
   getWelcome,
