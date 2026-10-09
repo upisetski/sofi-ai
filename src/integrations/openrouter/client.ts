@@ -1,6 +1,7 @@
 import {
   AiGenerationError,
   type AiProvider,
+  type AiResponseIssue,
 } from '../../application/ai-router.js';
 
 const CHAT_COMPLETIONS_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -8,6 +9,11 @@ const CHAT_COMPLETIONS_URL = 'https://openrouter.ai/api/v1/chat/completions';
 interface OpenRouterClientOptions {
   apiKey?: string;
   fetchImpl?: typeof fetch;
+}
+
+interface ResponseDiagnostics {
+  responseContentType?: string;
+  responseBodyLength?: number;
 }
 
 export function createOpenRouterClient(
@@ -54,14 +60,35 @@ export function createOpenRouterClient(
         throw new AiGenerationError('http', response.status, providerDetails);
       }
 
-      let payload: unknown;
+      const responseContentType = normalizeContentType(
+        response.headers.get('content-type'),
+      );
+      let responseBody: string;
       try {
-        payload = await response.json();
+        responseBody = await response.text();
       } catch {
-        throw new AiGenerationError('malformed_response');
+        throw new AiGenerationError('malformed_response', undefined, {
+          responseIssue: 'unreadable_body',
+          ...(responseContentType ? { responseContentType } : {}),
+        });
       }
 
-      return parseCompletion(payload);
+      const responseDetails: ResponseDiagnostics = {
+        ...(responseContentType ? { responseContentType } : {}),
+        responseBodyLength: new TextEncoder().encode(responseBody).byteLength,
+      };
+
+      let payload: unknown;
+      try {
+        payload = JSON.parse(responseBody);
+      } catch {
+        throw new AiGenerationError('malformed_response', undefined, {
+          responseIssue: 'invalid_json',
+          ...responseDetails,
+        });
+      }
+
+      return parseCompletion(payload, responseDetails);
     },
   };
 }
@@ -142,19 +169,55 @@ function sanitizeProviderErrorMessage(
   return safeMessage || undefined;
 }
 
-function parseCompletion(payload: unknown) {
-  if (!isRecord(payload) || !Array.isArray(payload.choices)) {
-    throw new AiGenerationError('malformed_response');
+function parseCompletion(
+  payload: unknown,
+  responseDetails: ResponseDiagnostics,
+) {
+  if (!isRecord(payload)) {
+    throw malformedResponse('response_not_object', payload, responseDetails);
+  }
+  if (!Array.isArray(payload.choices)) {
+    throw malformedResponse('missing_choices', payload, responseDetails);
+  }
+  if (payload.choices.length === 0) {
+    throw malformedResponse('empty_choices', payload, responseDetails);
   }
 
   const choice = payload.choices[0];
-  if (!isRecord(choice) || !isRecord(choice.message)) {
-    throw new AiGenerationError('malformed_response');
+  if (!isRecord(choice)) {
+    throw malformedResponse('invalid_choice', payload, responseDetails);
+  }
+  if (!isRecord(choice.message)) {
+    throw malformedResponse('missing_message', payload, responseDetails);
   }
 
   const content = choice.message.content;
-  if (typeof content !== 'string' || !content.trim()) {
-    throw new AiGenerationError('malformed_response');
+  if (content === undefined || content === null) {
+    throw malformedResponse(
+      'missing_content',
+      payload,
+      responseDetails,
+      choice,
+      choice.message,
+    );
+  }
+  if (typeof content !== 'string') {
+    throw malformedResponse(
+      'non_string_content',
+      payload,
+      responseDetails,
+      choice,
+      choice.message,
+    );
+  }
+  if (!content.trim()) {
+    throw malformedResponse(
+      'empty_content',
+      payload,
+      responseDetails,
+      choice,
+      choice.message,
+    );
   }
 
   const usage: {
@@ -180,6 +243,53 @@ function parseCompletion(payload: unknown) {
     text: content.trim(),
     ...(Object.keys(usage).length > 0 ? { usage } : {}),
   };
+}
+
+function malformedResponse(
+  responseIssue: AiResponseIssue,
+  payload: unknown,
+  responseDetails: ResponseDiagnostics,
+  choice?: Record<string, unknown>,
+  message?: Record<string, unknown>,
+): AiGenerationError {
+  const response = isRecord(payload) ? payload : undefined;
+  const choices =
+    response && Array.isArray(response.choices) ? response.choices : undefined;
+  const providerResponseId = safeProviderIdentifier(response?.id, 128);
+  const providerModel = safeProviderIdentifier(response?.model, 128);
+  const finishReason = safeProviderIdentifier(choice?.finish_reason, 64);
+  const messageContentType =
+    message !== undefined ? typeof message.content : undefined;
+
+  return new AiGenerationError('malformed_response', undefined, {
+    responseIssue,
+    ...responseDetails,
+    ...(providerResponseId ? { providerResponseId } : {}),
+    ...(providerModel ? { providerModel } : {}),
+    ...(choices ? { choiceCount: choices.length } : {}),
+    ...(finishReason ? { finishReason } : {}),
+    ...(messageContentType ? { messageContentType } : {}),
+  });
+}
+
+function normalizeContentType(value: string | null): string | undefined {
+  if (!value) return undefined;
+  const mimeType = value.split(';', 1)[0]?.trim().toLowerCase();
+  return mimeType && /^[a-z0-9.+_-]+\/[a-z0-9.+_-]+$/.test(mimeType)
+    ? mimeType
+    : undefined;
+}
+
+function safeProviderIdentifier(
+  value: unknown,
+  maxLength: number,
+): string | undefined {
+  return typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= maxLength &&
+    /^[a-zA-Z0-9_.:/-]+$/.test(value)
+    ? value
+    : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

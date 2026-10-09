@@ -119,32 +119,116 @@ describe('OpenRouter client', () => {
     });
   });
 
-  it('normalizes invalid JSON responses', async () => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response('not json', { status: 200 }));
+  it('describes invalid JSON responses without logging their content', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response('not json', {
+        status: 200,
+        headers: { 'content-type': 'text/plain; charset=utf-8' },
+      }),
+    );
     const client = createOpenRouterClient({ apiKey: 'test-secret', fetchImpl });
 
-    await expect(client.generate(request)).rejects.toMatchObject({
+    let thrown: unknown;
+    try {
+      await client.generate(request);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toMatchObject({
       kind: 'malformed_response',
+      responseIssue: 'invalid_json',
+      responseContentType: 'text/plain',
+      responseBodyLength: 8,
     });
+    expect(JSON.stringify(thrown)).not.toContain('not json');
+    expect(JSON.stringify(thrown)).not.toContain('second message');
   });
 
   it.each([
-    ['missing choices', { error: 'private response content' }],
-    ['missing message content', { choices: [{ message: {} }] }],
-    ['empty assistant content', { choices: [{ message: { content: '   ' } }] }],
-  ])('rejects malformed successful payloads: %s', async (_label, payload) => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(
-        new Response(JSON.stringify(payload), { status: 200 }),
+    {
+      label: 'missing choices',
+      payload: { error: 'private response content' },
+      responseIssue: 'missing_choices',
+    },
+    {
+      label: 'missing message content',
+      payload: { choices: [{ message: {} }] },
+      responseIssue: 'missing_content',
+    },
+    {
+      label: 'empty assistant content',
+      payload: { choices: [{ message: { content: '   ' } }] },
+      responseIssue: 'empty_content',
+    },
+  ])(
+    'identifies malformed successful payloads: $label',
+    async ({ payload, responseIssue }) => {
+      const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(JSON.stringify(payload), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
       );
+      const client = createOpenRouterClient({
+        apiKey: 'test-secret',
+        fetchImpl,
+      });
+
+      let thrown: unknown;
+      try {
+        await client.generate(request);
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toMatchObject({
+        kind: 'malformed_response',
+        responseIssue,
+        responseContentType: 'application/json',
+      });
+      expect(JSON.stringify(thrown)).not.toContain('private response content');
+      expect(JSON.stringify(thrown)).not.toContain('second message');
+    },
+  );
+
+  it('includes safe response metadata when the shape of a completion is invalid', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'gen-test-123',
+          model: 'provider/model-name',
+          choices: [
+            {
+              finish_reason: 'stop',
+              message: { content: { secret: 'must not be logged' } },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    );
     const client = createOpenRouterClient({ apiKey: 'test-secret', fetchImpl });
 
-    await expect(client.generate(request)).rejects.toMatchObject({
+    let thrown: unknown;
+    try {
+      await client.generate(request);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toMatchObject({
       kind: 'malformed_response',
+      responseIssue: 'non_string_content',
+      providerResponseId: 'gen-test-123',
+      providerModel: 'provider/model-name',
+      choiceCount: 1,
+      finishReason: 'stop',
+      messageContentType: 'object',
     });
+    expect(JSON.stringify(thrown)).not.toContain('must not be logged');
+    expect(JSON.stringify(thrown)).not.toContain('second message');
+    expect(JSON.stringify(thrown)).not.toContain('test-secret');
   });
 
   it('normalizes timeout and network errors without exposing exception text', async () => {
