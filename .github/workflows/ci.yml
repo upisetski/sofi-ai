@@ -48,3 +48,5 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t sofi-ai:ci .
+
+# Temporary formatting probe
