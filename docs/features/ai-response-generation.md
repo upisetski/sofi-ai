@@ -97,7 +97,7 @@ The first implementation handles text bursts only.
 - `AI_ENABLED` defaults to `true`; production requires `OPENROUTER_API_KEY` when AI is enabled. Disabling AI keeps the debounce path intact and sends a localized temporary-unavailable response.
 - `AI_MODEL_CHEAP_TEXT` defaults to `google/gemma-3-4b-it`. `AI_MAX_OUTPUT_TOKENS` defaults to `512` and accepts values from 1 through 8192. `AI_REQUEST_TIMEOUT_MS` defaults to `30000` and accepts values from 1000 through 120000.
 - The combined burst sent to the model is bounded to 12000 characters. If it exceeds that limit, the request preserves the beginning of the burst in order and marks the omitted remainder. Normal-sized bursts are passed as separate ordered user messages.
-- OpenRouter requests set `provider.zdr: true`, `provider.data_collection: "deny"`, and `provider.allow_fallbacks: false`. No prompt, user text, API key, authorization header, or raw provider response body is written to logs.
+- OpenRouter requests set `provider.zdr: true`, `provider.data_collection: "deny"`, and `provider.allow_fallbacks: false`. On HTTP errors, the adapter extracts only the structured provider error code and a sanitized, 300-character maximum error message. It does not log the raw provider response body, prompt, user text, API key, authorization header, or provider metadata.
 - Successful usage and cost metadata is logged when the provider returns it; it is not persisted to a usage table in this feature.
 - The worker completes the database job before generating and sending the outbound response. A generation failure is logged with safe metadata and produces a localized temporary-error message instead of an echo. This PR adds no retry: if Viber delivery also fails, the completed job is not retried and the response can be lost.
 
@@ -191,6 +191,7 @@ Relevant operational signals:
 - AI route;
 - model identifier;
 - provider response status/category;
+- provider error code and sanitized provider error message when present;
 - request latency;
 - success/failure;
 - token usage and cost metadata when returned by the provider.
@@ -213,7 +214,7 @@ Errors should be distinguishable at least as:
 - OpenRouter client builds the expected request body, including ZDR/privacy provider controls.
 - OpenRouter client parses a successful response into the normalized application result.
 - OpenRouter client converts non-success and malformed responses into normalized application errors.
-- Sensitive data is not included in normalized/loggable error information.
+- HTTP error summaries expose only a sanitized provider code/message and never raw response bodies, metadata, credentials, or user content.
 
 ### Integration
 

@@ -115,6 +115,38 @@ describe('AI Router', () => {
     expect(JSON.stringify(records)).not.toContain('private prompt text');
   });
 
+  it('logs sanitized provider error details for HTTP failures', async () => {
+    const records: AiRouterLogRecord[] = [];
+    const logger = {
+      info: vi.fn((record: AiRouterLogRecord) => records.push(record)),
+      error: vi.fn((record: AiRouterLogRecord) => records.push(record)),
+    };
+    const providerError = new AiGenerationError('http', 404, {
+      providerErrorCode: 404,
+      providerErrorMessage: 'No endpoints found matching your privacy requirements',
+    });
+    const router = createAiRouter(
+      config,
+      { generate: vi.fn().mockRejectedValue(providerError) },
+      logger,
+    );
+
+    await expect(
+      router.generate({ route: 'cheap_text', messages: ['private user text'] }),
+    ).rejects.toMatchObject({ kind: 'http', httpStatus: 404 });
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'ai_generation_failed',
+        category: 'http',
+        httpStatus: 404,
+        providerErrorCode: 404,
+        providerErrorMessage: 'No endpoints found matching your privacy requirements',
+      }),
+    );
+    expect(JSON.stringify(records)).not.toContain('private user text');
+  });
+
   it('reports a missing route model as a configuration error', async () => {
     const logger = { info: vi.fn(), error: vi.fn() };
     const router = createAiRouter(
