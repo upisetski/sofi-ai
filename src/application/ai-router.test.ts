@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   AiGenerationError,
   MAX_AI_INPUT_CHARS,
+  MAX_AI_INPUT_MESSAGES,
   buildAiMessages,
   createAiRouter,
   type AiRouterLogRecord,
@@ -77,6 +78,15 @@ describe('AI Router', () => {
     expect(messages[0]?.content).toContain('input limit');
   });
 
+  it('bounds the number of user messages even when their text is empty', () => {
+    const messages = buildAiMessages(
+      Array.from({ length: MAX_AI_INPUT_MESSAGES + 20 }, () => ''),
+      'en',
+    ).slice(1);
+
+    expect(messages).toHaveLength(MAX_AI_INPUT_MESSAGES);
+    expect(messages.at(-1)?.content).toContain('input limit');
+  });
   it('normalizes unknown provider errors and never logs prompt contents', async () => {
     const records: AiRouterLogRecord[] = [];
     const logger = {
