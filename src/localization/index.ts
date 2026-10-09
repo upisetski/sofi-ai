@@ -10,13 +10,12 @@ export interface LocalizedWelcome {
   welcome: string;
 }
 
-export interface LocalizedTextBurstResponse {
+export interface LocalizedTextResponse {
   senderName: string;
   text: string;
 }
 
 interface LocaleCopy extends LocalizedWelcome {
-  textBurstIntro: string;
   aiTemporaryError: string;
 }
 
@@ -44,20 +43,7 @@ export function getWelcomeText(language: string | undefined): string {
 
 export function getAiTemporaryErrorResponse(
   language: string | undefined,
-): LocalizedTextBurstResponse {
+): LocalizedTextResponse {
   const locale = locales[resolveLocale(language)];
   return { senderName: locale.senderName, text: locale.aiTemporaryError };
-}
-
-export function getTextBurstResponse(
-  language: string | undefined,
-  messages: string[],
-): LocalizedTextBurstResponse {
-  const locale = locales[resolveLocale(language)];
-  const excerpt = Array.from(messages.join('\n\n')).slice(0, 1000).join('');
-
-  return {
-    senderName: locale.senderName,
-    text: `${locale.textBurstIntro}\n\n${excerpt}`,
-  };
 }
