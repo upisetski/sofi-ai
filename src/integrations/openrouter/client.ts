@@ -1,4 +1,7 @@
-import { AiGenerationError, type AiProvider } from '../../application/ai-router.js';
+import {
+  AiGenerationError,
+  type AiProvider,
+} from '../../application/ai-router.js';
 
 const CHAT_COMPLETIONS_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -89,7 +92,8 @@ function parseCompletion(payload: unknown) {
     const totalTokens = nonNegativeNumber(payload.usage.total_tokens);
     const costUsd = nonNegativeNumber(payload.usage.cost);
     if (promptTokens !== undefined) usage.promptTokens = promptTokens;
-    if (completionTokens !== undefined) usage.completionTokens = completionTokens;
+    if (completionTokens !== undefined)
+      usage.completionTokens = completionTokens;
     if (totalTokens !== undefined) usage.totalTokens = totalTokens;
     if (costUsd !== undefined) usage.costUsd = costUsd;
   }
