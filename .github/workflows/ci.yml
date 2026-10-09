@@ -40,8 +40,8 @@ jobs:
       - run: npm run lint
       - name: Show Prettier diff
         run: |
-          npx prettier --write src/application/job-worker.test.ts src/application/job-worker.ts src/application/viber-event-processing.test.ts
-          git diff -- src/application/job-worker.test.ts src/application/job-worker.ts src/application/viber-event-processing.test.ts
+          npx prettier --write src/application/job-worker.test.ts src/application/job-worker.ts src/application/viber-event-processing.test.ts src/application/ai-router.test.ts src/application/ai-router.ts src/application/text-burst-handler.test.ts src/application/text-burst-handler.ts src/config/env.test.ts src/config/env.ts src/integrations/openrouter/client.test.ts src/integrations/openrouter/client.ts src/localization/locales/english-locale.ts src/server.ts
+          git diff --color=never -- src/application/job-worker.test.ts src/application/job-worker.ts src/application/viber-event-processing.test.ts src/application/ai-router.test.ts src/application/ai-router.ts src/application/text-burst-handler.test.ts src/application/text-burst-handler.ts src/config/env.test.ts src/config/env.ts src/integrations/openrouter/client.test.ts src/integrations/openrouter/client.ts src/localization/locales/english-locale.ts src/server.ts
       - run: npm run format:check
       - run: npm test
       - run: npm run build
