@@ -1,19 +1,32 @@
 import { buildApp } from './app.js';
+import { createAiRouter } from './application/ai-router.js';
 import { handleTextBurstComplete } from './application/text-burst-handler.js';
 import { ConversationWorker } from './application/job-worker.js';
 import { env } from './config/env.js';
 import { createDb } from './db/client.js';
 import { migrate } from './db/migrations.js';
+import { createOpenRouterClient } from './integrations/openrouter/client.js';
 import { createViberClient } from './integrations/viber/client.js';
 
 const db = createDb();
 const viberClient = createViberClient({ authToken: env.VIBER_AUTH_TOKEN });
+const aiRouter = env.AI_ENABLED
+  ? createAiRouter(
+      {
+        models: { cheap_text: env.AI_MODEL_CHEAP_TEXT },
+        maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
+        requestTimeoutMs: env.AI_REQUEST_TIMEOUT_MS,
+      },
+      createOpenRouterClient({ apiKey: env.OPENROUTER_API_KEY }),
+    )
+  : undefined;
 
 try {
   await migrate(db);
 
   const worker = new ConversationWorker(db, {
-    onTextBurstComplete: (input) => handleTextBurstComplete(viberClient, input),
+    onTextBurstComplete: (input) =>
+      handleTextBurstComplete(viberClient, aiRouter, input),
   });
   worker.start();
 
