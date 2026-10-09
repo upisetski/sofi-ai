@@ -78,7 +78,7 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
     expect(onTextBurstComplete).not.toHaveBeenCalled();
 
     await db!.query(
-      'UPDATE jobs SET available_at = NOW() - INTERVAL \'1 second\' WHERE conversation_id = $1',
+      "UPDATE jobs SET available_at = NOW() - INTERVAL '1 second' WHERE conversation_id = $1",
       [first.conversationId],
     );
 
