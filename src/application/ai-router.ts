@@ -31,11 +31,7 @@ export interface AiProvider {
 }
 
 export type AiErrorKind =
-  | 'configuration'
-  | 'http'
-  | 'timeout'
-  | 'network'
-  | 'malformed_response';
+  'configuration' | 'http' | 'timeout' | 'network' | 'malformed_response';
 
 export class AiGenerationError extends Error {
   readonly kind: AiErrorKind;
