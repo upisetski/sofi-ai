@@ -159,13 +159,17 @@ describe('AI Router', () => {
       info: vi.fn((record: AiRouterLogRecord) => records.push(record)),
       error: vi.fn((record: AiRouterLogRecord) => records.push(record)),
     };
-    const providerError = new AiGenerationError('malformed_response', undefined, {
-      responseIssue: 'missing_choices',
-      responseContentType: 'application/json',
-      responseBodyLength: 72,
-      providerResponseId: 'gen-test-123',
-      providerModel: 'provider/model-name',
-    });
+    const providerError = new AiGenerationError(
+      'malformed_response',
+      undefined,
+      {
+        responseIssue: 'missing_choices',
+        responseContentType: 'application/json',
+        responseBodyLength: 72,
+        providerResponseId: 'gen-test-123',
+        providerModel: 'provider/model-name',
+      },
+    );
     const router = createAiRouter(
       config,
       { generate: vi.fn().mockRejectedValue(providerError) },

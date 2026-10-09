@@ -161,35 +161,36 @@ describe('OpenRouter client', () => {
       payload: { choices: [{ message: { content: '   ' } }] },
       responseIssue: 'empty_content',
     },
-  ])('identifies malformed successful payloads: $label', async ({
-    payload,
-    responseIssue,
-  }) => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(
+  ])(
+    'identifies malformed successful payloads: $label',
+    async ({ payload, responseIssue }) => {
+      const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
         new Response(JSON.stringify(payload), {
           status: 200,
           headers: { 'content-type': 'application/json' },
         }),
       );
-    const client = createOpenRouterClient({ apiKey: 'test-secret', fetchImpl });
+      const client = createOpenRouterClient({
+        apiKey: 'test-secret',
+        fetchImpl,
+      });
 
-    let thrown: unknown;
-    try {
-      await client.generate(request);
-    } catch (error) {
-      thrown = error;
-    }
+      let thrown: unknown;
+      try {
+        await client.generate(request);
+      } catch (error) {
+        thrown = error;
+      }
 
-    expect(thrown).toMatchObject({
-      kind: 'malformed_response',
-      responseIssue,
-      responseContentType: 'application/json',
-    });
-    expect(JSON.stringify(thrown)).not.toContain('private response content');
-    expect(JSON.stringify(thrown)).not.toContain('second message');
-  });
+      expect(thrown).toMatchObject({
+        kind: 'malformed_response',
+        responseIssue,
+        responseContentType: 'application/json',
+      });
+      expect(JSON.stringify(thrown)).not.toContain('private response content');
+      expect(JSON.stringify(thrown)).not.toContain('second message');
+    },
+  );
 
   it('includes safe response metadata when the shape of a completion is invalid', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(

@@ -253,9 +253,8 @@ function malformedResponse(
   message?: Record<string, unknown>,
 ): AiGenerationError {
   const response = isRecord(payload) ? payload : undefined;
-  const choices = response && Array.isArray(response.choices)
-    ? response.choices
-    : undefined;
+  const choices =
+    response && Array.isArray(response.choices) ? response.choices : undefined;
   const providerResponseId = safeProviderIdentifier(response?.id, 128);
   const providerModel = safeProviderIdentifier(response?.model, 128);
   const finishReason = safeProviderIdentifier(choice?.finish_reason, 64);
