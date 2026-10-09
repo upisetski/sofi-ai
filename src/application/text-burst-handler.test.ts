@@ -16,15 +16,11 @@ describe('handleTextBurstComplete', () => {
     });
     const aiRouter: AiRouter = { generate };
 
-    await handleTextBurstComplete(
-      { sendTextMessage },
-      aiRouter,
-      {
-        userId: 'user-1',
-        language: 'be',
-        messages: ['Як аформіць адпачынак?', 'І колькі дзён можна ўзяць?'],
-      },
-    );
+    await handleTextBurstComplete({ sendTextMessage }, aiRouter, {
+      userId: 'user-1',
+      language: 'be',
+      messages: ['Як аформіць адпачынак?', 'І колькі дзён можна ўзяць?'],
+    });
 
     expect(generate).toHaveBeenCalledTimes(1);
     expect(generate).toHaveBeenCalledWith({
@@ -44,8 +40,15 @@ describe('handleTextBurstComplete', () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
-          choices: [{ message: { role: 'assistant', content: 'AI-generated reply' } }],
-          usage: { prompt_tokens: 14, completion_tokens: 5, total_tokens: 19, cost: 0.0001 },
+          choices: [
+            { message: { role: 'assistant', content: 'AI-generated reply' } },
+          ],
+          usage: {
+            prompt_tokens: 14,
+            completion_tokens: 5,
+            total_tokens: 19,
+            cost: 0.0001,
+          },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       ),
@@ -61,22 +64,22 @@ describe('handleTextBurstComplete', () => {
     );
     const sendTextMessage = vi.fn().mockResolvedValue(undefined);
 
-    await handleTextBurstComplete(
-      { sendTextMessage },
-      aiRouter,
-      {
-        userId: 'user-integration',
-        language: 'be',
-        messages: ['Першае паведамленне', 'Другое паведамленне'],
-      },
-    );
+    await handleTextBurstComplete({ sendTextMessage }, aiRouter, {
+      userId: 'user-integration',
+      language: 'be',
+      messages: ['Першае паведамленне', 'Другое паведамленне'],
+    });
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as {
       model: string;
       max_tokens: number;
       messages: Array<{ role: string; content: string }>;
-      provider: { zdr: boolean; data_collection: string; allow_fallbacks: boolean };
+      provider: {
+        zdr: boolean;
+        data_collection: string;
+        allow_fallbacks: boolean;
+      };
     };
     expect(body.model).toBe('google/gemma-3-4b-it');
     expect(body.max_tokens).toBe(512);
@@ -104,11 +107,11 @@ describe('handleTextBurstComplete', () => {
     };
     const messages = ['My private message', 'another private detail'];
 
-    await handleTextBurstComplete(
-      { sendTextMessage },
-      aiRouter,
-      { userId: 'user-2', language: 'en', messages },
-    );
+    await handleTextBurstComplete({ sendTextMessage }, aiRouter, {
+      userId: 'user-2',
+      language: 'en',
+      messages,
+    });
 
     expect(sendTextMessage).toHaveBeenCalledTimes(1);
     expect(sendTextMessage).toHaveBeenCalledWith({
@@ -122,11 +125,11 @@ describe('handleTextBurstComplete', () => {
   it('responds with the temporary error when AI generation is disabled', async () => {
     const sendTextMessage = vi.fn().mockResolvedValue(undefined);
 
-    await handleTextBurstComplete(
-      { sendTextMessage },
-      undefined,
-      { userId: 'user-3', language: 'ru', messages: ['hello'] },
-    );
+    await handleTextBurstComplete({ sendTextMessage }, undefined, {
+      userId: 'user-3',
+      language: 'ru',
+      messages: ['hello'],
+    });
 
     expect(sendTextMessage).toHaveBeenCalledTimes(1);
     expect(sendTextMessage.mock.calls[0]?.[0]?.text).toContain(
