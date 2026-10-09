@@ -3,5 +3,5 @@ export const english = {
   welcome:
     'Sofi - your AI assistant for everyday life. Send questions, photos, documents, or messages. I will help you figure things out, write, translate, or come up with ideas.',
   aiTemporaryError:
-    'I can’t prepare a response right now. Please try again shortly.'
+    'I can’t prepare a response right now. Please try again shortly.',
 } as const;
