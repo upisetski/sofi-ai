@@ -30,7 +30,9 @@ describe('environment configuration', () => {
         NODE_ENV: 'production',
         DATABASE_URL: 'postgresql://user:password@host:5432/db',
       }),
-    ).toThrow(/OPENROUTER_API_KEY is required when AI is enabled in production/);
+    ).toThrow(
+      /OPENROUTER_API_KEY is required when AI is enabled in production/,
+    );
   });
 
   it('allows AI to be disabled in production without an OpenRouter key', () => {
@@ -52,9 +54,7 @@ describe('environment configuration', () => {
       OPENROUTER_API_KEY: 'test-openrouter-key',
     });
 
-    expect(config.DATABASE_URL).toBe(
-      'postgresql://user:password@host:5432/db',
-    );
+    expect(config.DATABASE_URL).toBe('postgresql://user:password@host:5432/db');
     expect(config.OPENROUTER_API_KEY).toBe('test-openrouter-key');
   });
 
