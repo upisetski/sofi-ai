@@ -153,6 +153,48 @@ describe('AI Router', () => {
     expect(JSON.stringify(records)).not.toContain('private user text');
   });
 
+  it('logs malformed response diagnostics but never logs user content', async () => {
+    const records: AiRouterLogRecord[] = [];
+    const logger = {
+      info: vi.fn((record: AiRouterLogRecord) => records.push(record)),
+      error: vi.fn((record: AiRouterLogRecord) => records.push(record)),
+    };
+    const providerError = new AiGenerationError('malformed_response', undefined, {
+      responseIssue: 'missing_choices',
+      responseContentType: 'application/json',
+      responseBodyLength: 72,
+      providerResponseId: 'gen-test-123',
+      providerModel: 'provider/model-name',
+    });
+    const router = createAiRouter(
+      config,
+      { generate: vi.fn().mockRejectedValue(providerError) },
+      logger,
+    );
+
+    await expect(
+      router.generate({
+        route: 'cheap_text',
+        messages: ['private prompt text'],
+      }),
+    ).rejects.toMatchObject({
+      kind: 'malformed_response',
+      responseIssue: 'missing_choices',
+    });
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'malformed_response',
+        responseIssue: 'missing_choices',
+        responseContentType: 'application/json',
+        responseBodyLength: 72,
+        providerResponseId: 'gen-test-123',
+        providerModel: 'provider/model-name',
+      }),
+    );
+    expect(JSON.stringify(records)).not.toContain('private prompt text');
+  });
+
   it('reports a missing route model as a configuration error', async () => {
     const logger = { info: vi.fn(), error: vi.fn() };
     const router = createAiRouter(

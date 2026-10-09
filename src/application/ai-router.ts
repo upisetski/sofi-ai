@@ -31,31 +31,89 @@ export interface AiProvider {
 }
 
 export type AiErrorKind =
-  'configuration' | 'http' | 'timeout' | 'network' | 'malformed_response';
+  | 'configuration'
+  | 'http'
+  | 'timeout'
+  | 'network'
+  | 'malformed_response';
+
+export type AiResponseIssue =
+  | 'invalid_json'
+  | 'unreadable_body'
+  | 'response_not_object'
+  | 'missing_choices'
+  | 'empty_choices'
+  | 'invalid_choice'
+  | 'missing_message'
+  | 'missing_content'
+  | 'non_string_content'
+  | 'empty_content';
+
+export interface AiGenerationErrorDetails {
+  providerErrorCode?: string | number;
+  providerErrorMessage?: string;
+  responseIssue?: AiResponseIssue;
+  responseContentType?: string;
+  responseBodyLength?: number;
+  providerResponseId?: string;
+  providerModel?: string;
+  choiceCount?: number;
+  finishReason?: string;
+  messageContentType?: string;
+}
 
 export class AiGenerationError extends Error {
   readonly kind: AiErrorKind;
   readonly httpStatus?: number;
   readonly providerErrorCode?: string | number;
   readonly providerErrorMessage?: string;
+  readonly responseIssue?: AiResponseIssue;
+  readonly responseContentType?: string;
+  readonly responseBodyLength?: number;
+  readonly providerResponseId?: string;
+  readonly providerModel?: string;
+  readonly choiceCount?: number;
+  readonly finishReason?: string;
+  readonly messageContentType?: string;
 
   constructor(
     kind: AiErrorKind,
     httpStatus?: number,
-    providerDetails: {
-      providerErrorCode?: string | number;
-      providerErrorMessage?: string;
-    } = {},
+    details: AiGenerationErrorDetails = {},
   ) {
     super(`AI generation failed: ${kind}`);
     this.name = 'AiGenerationError';
     this.kind = kind;
     if (httpStatus !== undefined) this.httpStatus = httpStatus;
-    if (providerDetails.providerErrorCode !== undefined) {
-      this.providerErrorCode = providerDetails.providerErrorCode;
+    if (details.providerErrorCode !== undefined) {
+      this.providerErrorCode = details.providerErrorCode;
     }
-    if (providerDetails.providerErrorMessage !== undefined) {
-      this.providerErrorMessage = providerDetails.providerErrorMessage;
+    if (details.providerErrorMessage !== undefined) {
+      this.providerErrorMessage = details.providerErrorMessage;
+    }
+    if (details.responseIssue !== undefined) {
+      this.responseIssue = details.responseIssue;
+    }
+    if (details.responseContentType !== undefined) {
+      this.responseContentType = details.responseContentType;
+    }
+    if (details.responseBodyLength !== undefined) {
+      this.responseBodyLength = details.responseBodyLength;
+    }
+    if (details.providerResponseId !== undefined) {
+      this.providerResponseId = details.providerResponseId;
+    }
+    if (details.providerModel !== undefined) {
+      this.providerModel = details.providerModel;
+    }
+    if (details.choiceCount !== undefined) {
+      this.choiceCount = details.choiceCount;
+    }
+    if (details.finishReason !== undefined) {
+      this.finishReason = details.finishReason;
+    }
+    if (details.messageContentType !== undefined) {
+      this.messageContentType = details.messageContentType;
     }
   }
 }
@@ -86,6 +144,14 @@ export interface AiRouterLogRecord {
   httpStatus?: number;
   providerErrorCode?: string | number;
   providerErrorMessage?: string;
+  responseIssue?: AiResponseIssue;
+  responseContentType?: string;
+  responseBodyLength?: number;
+  providerResponseId?: string;
+  providerModel?: string;
+  choiceCount?: number;
+  finishReason?: string;
+  messageContentType?: string;
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
@@ -101,7 +167,7 @@ export const MAX_AI_INPUT_CHARS = 12_000;
 export const MAX_AI_INPUT_MESSAGES = 100;
 
 const truncationMarker =
-  '\n[The remainder of this message burst was omitted because it exceeded the input limit.]';
+  '\\n[The remainder of this message burst was omitted because it exceeded the input limit.]';
 
 const localeNames: Record<ReturnType<typeof resolveLocale>, string> = {
   ru: 'Russian',
@@ -261,6 +327,30 @@ export function createAiRouter(
             : {}),
           ...(error.providerErrorMessage !== undefined
             ? { providerErrorMessage: error.providerErrorMessage }
+            : {}),
+          ...(error.responseIssue !== undefined
+            ? { responseIssue: error.responseIssue }
+            : {}),
+          ...(error.responseContentType !== undefined
+            ? { responseContentType: error.responseContentType }
+            : {}),
+          ...(error.responseBodyLength !== undefined
+            ? { responseBodyLength: error.responseBodyLength }
+            : {}),
+          ...(error.providerResponseId !== undefined
+            ? { providerResponseId: error.providerResponseId }
+            : {}),
+          ...(error.providerModel !== undefined
+            ? { providerModel: error.providerModel }
+            : {}),
+          ...(error.choiceCount !== undefined
+            ? { choiceCount: error.choiceCount }
+            : {}),
+          ...(error.finishReason !== undefined
+            ? { finishReason: error.finishReason }
+            : {}),
+          ...(error.messageContentType !== undefined
+            ? { messageContentType: error.messageContentType }
             : {}),
         });
         throw error;
