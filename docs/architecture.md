@@ -148,7 +148,7 @@ The worker initially runs in the same Node.js application.
 
 A conversation processing job is created or woken as part of accepting an inbound event. Processing uses PostgreSQL locking so one conversation is handled by at most one worker at a time, while unrelated conversations can run concurrently.
 
-Newly accepted events have a small configurable reordering delay before processing. For text messages, the same job `available_at` field also provides the debounce timer: each accepted message can push the processing deadline forward, so a burst is processed only after the configured quiet period (10 seconds by default). Text messages do not trigger an immediate response. Once the quiet period expires, the worker sends one localized response containing the text messages from the burst. This is separate from provider event ordering and does not require a new debounce table.
+Newly accepted events have a small configurable reordering delay before processing. For text messages, the same job `available_at` field also provides the debounce timer: each accepted message can push the processing deadline forward, so a burst is processed only after the configured quiet period (10 seconds by default). Text messages do not trigger an immediate response. Once the quiet period expires, the worker processes the persisted burst and sends one AI-generated text response through the existing Viber client. If generation fails, Sofi sends a localized temporary-error response rather than echoing user text. This is separate from provider event ordering and does not require a new debounce table.
 
 Move to Redis + BullMQ + dedicated workers only if actual workload makes that worthwhile.
 
@@ -199,7 +199,9 @@ Route classes:
 - `vision`
 - `web`
 
-Business logic should not depend directly on a specific model name.
+Business logic should not depend directly on a specific model name. The initial `cheap_text` route maps to `AI_MODEL_CHEAP_TEXT` (default `google/gemma-3-4b-it`). The OpenRouter adapter sets a request timeout, `max_tokens`, `provider.zdr: true`, `provider.data_collection: "deny"`, and disables provider fallback. The combined user input is capped at 12000 characters; generated output is capped by `AI_MAX_OUTPUT_TOKENS` (default 512).
+
+The current worker completes its PostgreSQL job before attempting AI generation and delivery. Generation errors are observed through structured logs and a temporary-error response; there is no automatic retry or fallback, so a subsequent Viber delivery failure is not retried.
 
 ## OpenRouter
 
@@ -239,7 +241,7 @@ The application schema is introduced in feature PRs rather than the initial envi
 
 ## Rate and budget protection
 
-Before an OpenRouter request:
+Planned public-launch protection should, before an OpenRouter request:
 1. identify the user
 2. check request limits
 3. check daily user budget
@@ -249,7 +251,7 @@ Before an OpenRouter request:
 7. record actual cost
 8. release unused reservation
 
-Global protection includes a daily budget, monthly budget, economy mode near the threshold, and a hard ceiling.
+**Implementation status:** these per-user limits, per-request cost guard, reservations/reconciliation, global daily/monthly budgets, economy mode, and hard ceiling are not enforced by the current application. The AI response feature only enforces per-request input-size, output-token, and timeout limits. Do not treat the architecture list above as implemented controls; close this gap before wider public rollout.
 
 ## Privacy principles
 
