@@ -1,0 +1,123 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import {
+  AiGenerationError,
+  MAX_AI_INPUT_CHARS,
+  buildAiMessages,
+  createAiRouter,
+  type AiRouterLogRecord,
+} from './ai-router.js';
+
+const config = {
+  models: { cheap_text: 'google/gemma-3-4b-it' },
+  maxOutputTokens: 512,
+  requestTimeoutMs: 30000,
+};
+
+describe('AI Router', () => {
+  it('maps cheap_text to the configured model and forwards a complete ordered burst', async () => {
+    const generate = vi.fn().mockResolvedValue({ text: '  Hello!  ' });
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const router = createAiRouter(config, { generate }, logger);
+
+    await expect(
+      router.generate({
+        route: 'cheap_text',
+        language: 'be',
+        messages: ['Першае паведамленне', 'Другое паведамленне'],
+      }),
+    ).resolves.toEqual({ text: 'Hello!' });
+
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate).toHaveBeenCalledWith({
+      model: 'google/gemma-3-4b-it',
+      maxOutputTokens: 512,
+      timeoutMs: 30000,
+      messages: [
+        {
+          role: 'system',
+          content: expect.stringContaining('Belarusian'),
+        },
+        { role: 'user', content: 'Першае паведамленне' },
+        { role: 'user', content: 'Другое паведамленне' },
+      ],
+    });
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'ai_generation_succeeded',
+        route: 'cheap_text',
+        model: 'google/gemma-3-4b-it',
+        outcome: 'success',
+      }),
+    );
+  });
+
+  it('builds a Russian prompt when the locale resolves to Russian', () => {
+    const messages = buildAiMessages(['first', 'second'], 'ru');
+
+    expect(messages[0]?.content).toContain('Answer in Russian');
+    expect(messages.slice(1)).toEqual([
+      { role: 'user', content: 'first' },
+      { role: 'user', content: 'second' },
+    ]);
+  });
+
+  it('bounds the total input size while retaining the beginning of the burst in order', () => {
+    const messages = buildAiMessages(
+      ['a'.repeat(MAX_AI_INPUT_CHARS), 'later message'],
+      'en',
+    ).slice(1);
+    const totalChars = messages.reduce(
+      (total, message) => total + message.content.length,
+      0,
+    );
+
+    expect(totalChars).toBeLessThanOrEqual(MAX_AI_INPUT_CHARS);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.content).toContain('input limit');
+  });
+
+  it('normalizes unknown provider errors and never logs prompt contents', async () => {
+    const records: AiRouterLogRecord[] = [];
+    const logger = {
+      info: vi.fn((record: AiRouterLogRecord) => records.push(record)),
+      error: vi.fn((record: AiRouterLogRecord) => records.push(record)),
+    };
+    const router = createAiRouter(
+      config,
+      { generate: vi.fn().mockRejectedValue(new Error('private prompt text')) },
+      logger,
+    );
+
+    let thrown: unknown;
+    try {
+      await router.generate({
+        route: 'cheap_text',
+        messages: ['private prompt text'],
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(AiGenerationError);
+    expect((thrown as AiGenerationError).kind).toBe('network');
+    expect((thrown as Error).message).not.toContain('private prompt text');
+    expect(JSON.stringify(records)).not.toContain('private prompt text');
+  });
+
+  it('reports a missing route model as a configuration error', async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const router = createAiRouter(
+      { ...config, models: {} },
+      { generate: vi.fn() },
+      logger,
+    );
+
+    await expect(
+      router.generate({ route: 'cheap_text', messages: ['hello'] }),
+    ).rejects.toMatchObject({ kind: 'configuration' });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'configuration' }),
+    );
+  });
+});
