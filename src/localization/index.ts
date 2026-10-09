@@ -17,6 +17,7 @@ export interface LocalizedTextBurstResponse {
 
 interface LocaleCopy extends LocalizedWelcome {
   textBurstIntro: string;
+  aiTemporaryError: string;
 }
 
 const locales: Record<SupportedLocale, LocaleCopy> = {
@@ -39,6 +40,13 @@ export function getWelcome(language: string | undefined): LocalizedWelcome {
 
 export function getWelcomeText(language: string | undefined): string {
   return getWelcome(language).welcome;
+}
+
+export function getAiTemporaryErrorResponse(
+  language: string | undefined,
+): LocalizedTextBurstResponse {
+  const locale = locales[resolveLocale(language)];
+  return { senderName: locale.senderName, text: locale.aiTemporaryError };
 }
 
 export function getTextBurstResponse(
