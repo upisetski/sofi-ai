@@ -71,5 +71,5 @@ Malformed-response logs add a stable reason plus bounded response metadata. Exis
 - [x] Tests added or updated
 - [x] Documentation updated where needed
 - [ ] ADR added if a significant architectural decision was made
-- [ ] Full local checks pass
+- [x] Full CI checks pass
 - [x] Focused PR opened
