@@ -1,7 +1,6 @@
 import {
   AiGenerationError,
   type AiProvider,
-  type AiProviderRequest,
 } from '../../application/ai-router.js';
 
 const CHAT_COMPLETIONS_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -121,8 +120,12 @@ function sanitizeProviderErrorMessage(
   apiKey: string,
   messages: AiProviderRequestMessages,
 ): string | undefined {
-  let safeMessage = message
-    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+  let safeMessage = [...message]
+    .map((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127 ? ' ' : character;
+    })
+    .join('')
     .replace(/\s+/g, ' ')
     .trim();
 
