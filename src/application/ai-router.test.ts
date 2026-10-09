@@ -87,6 +87,7 @@ describe('AI Router', () => {
     expect(messages).toHaveLength(MAX_AI_INPUT_MESSAGES);
     expect(messages.at(-1)?.content).toContain('input limit');
   });
+
   it('normalizes unknown provider errors and never logs prompt contents', async () => {
     const records: AiRouterLogRecord[] = [];
     const logger = {
@@ -132,7 +133,10 @@ describe('AI Router', () => {
     );
 
     await expect(
-      router.generate({ route: 'cheap_text', messages: ['private user text'] }),
+      router.generate({
+        route: 'cheap_text',
+        messages: ['private user text'],
+      }),
     ).rejects.toMatchObject({ kind: 'http', httpStatus: 404 });
 
     expect(logger.error).toHaveBeenCalledWith(
@@ -141,7 +145,8 @@ describe('AI Router', () => {
         category: 'http',
         httpStatus: 404,
         providerErrorCode: 404,
-        providerErrorMessage: 'No endpoints found matching your privacy requirements',
+        providerErrorMessage:
+          'No endpoints found matching your privacy requirements',
       }),
     );
     expect(JSON.stringify(records)).not.toContain('private user text');

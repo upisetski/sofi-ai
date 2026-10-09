@@ -103,7 +103,9 @@ async function readOpenRouterError(
 
 type AiProviderRequestMessages = Array<{ role: string; content: string }>;
 
-function normalizeProviderErrorCode(value: unknown): string | number | undefined {
+function normalizeProviderErrorCode(
+  value: unknown,
+): string | number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (
     typeof value === 'string' &&
