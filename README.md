@@ -185,10 +185,14 @@ PORT=<provided by Railway>
 HOST=0.0.0.0
 DATABASE_URL=\${{Postgres.DATABASE_URL}}
 VIBER_AUTH_TOKEN=...
+AI_ENABLED=true
 OPENROUTER_API_KEY=...
+AI_MODEL_CHEAP_TEXT=google/gemma-3-4b-it
+AI_MAX_OUTPUT_TOKENS=512
+AI_REQUEST_TIMEOUT_MS=30000
 ```
 
-In production, `DATABASE_URL` is required during configuration parsing. The application runs database migrations before starting the HTTP server, and the `/health` endpoint verifies PostgreSQL readiness.
+In production, `DATABASE_URL` is required during configuration parsing. `OPENROUTER_API_KEY` is also required when `AI_ENABLED=true`. Set `AI_ENABLED=false` to disable generation; the debounce handler sends a localized temporary-unavailable response. The application runs database migrations before starting the HTTP server, and the `/health` endpoint verifies PostgreSQL readiness.
 
 ## Implemented
 

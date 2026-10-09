@@ -10,13 +10,13 @@ export interface LocalizedWelcome {
   welcome: string;
 }
 
-export interface LocalizedTextBurstResponse {
+export interface LocalizedTextResponse {
   senderName: string;
   text: string;
 }
 
 interface LocaleCopy extends LocalizedWelcome {
-  textBurstIntro: string;
+  aiTemporaryError: string;
 }
 
 const locales: Record<SupportedLocale, LocaleCopy> = {
@@ -41,15 +41,9 @@ export function getWelcomeText(language: string | undefined): string {
   return getWelcome(language).welcome;
 }
 
-export function getTextBurstResponse(
+export function getAiTemporaryErrorResponse(
   language: string | undefined,
-  messages: string[],
-): LocalizedTextBurstResponse {
+): LocalizedTextResponse {
   const locale = locales[resolveLocale(language)];
-  const excerpt = Array.from(messages.join('\n\n')).slice(0, 1000).join('');
-
-  return {
-    senderName: locale.senderName,
-    text: `${locale.textBurstIntro}\n\n${excerpt}`,
-  };
+  return { senderName: locale.senderName, text: locale.aiTemporaryError };
 }

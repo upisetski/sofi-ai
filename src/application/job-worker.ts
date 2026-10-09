@@ -73,7 +73,12 @@ export class ConversationWorker {
               ...(processed.language ? { language: processed.language } : {}),
             });
           } catch (error) {
-            console.error('Failed to send text burst echo', error);
+            console.error(
+              JSON.stringify({
+                event: 'text_burst_response_failed',
+                category: error instanceof Error ? error.name : 'unknown',
+              }),
+            );
           }
         }
       } catch (error) {

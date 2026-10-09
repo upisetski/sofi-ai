@@ -1,0 +1,247 @@
+import { resolveLocale } from '../localization/index.js';
+
+export type AiRoute = 'cheap_text';
+
+export interface AiChatMessage {
+  role: 'system' | 'user';
+  content: string;
+}
+
+export interface AiUsage {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  costUsd?: number;
+}
+
+export interface AiGenerationResult {
+  text: string;
+  usage?: AiUsage;
+}
+
+export interface AiProviderRequest {
+  model: string;
+  messages: AiChatMessage[];
+  maxOutputTokens: number;
+  timeoutMs: number;
+}
+
+export interface AiProvider {
+  generate(input: AiProviderRequest): Promise<AiGenerationResult>;
+}
+
+export type AiErrorKind =
+  'configuration' | 'http' | 'timeout' | 'network' | 'malformed_response';
+
+export class AiGenerationError extends Error {
+  readonly kind: AiErrorKind;
+  readonly httpStatus?: number;
+
+  constructor(kind: AiErrorKind, httpStatus?: number) {
+    super(`AI generation failed: ${kind}`);
+    this.name = 'AiGenerationError';
+    this.kind = kind;
+    if (httpStatus !== undefined) this.httpStatus = httpStatus;
+  }
+}
+
+export interface AiRouterInput {
+  route: AiRoute;
+  messages: string[];
+  language?: string;
+}
+
+export interface AiRouter {
+  generate(input: AiRouterInput): Promise<AiGenerationResult>;
+}
+
+export interface AiRouterConfig {
+  models: Partial<Record<AiRoute, string>>;
+  maxOutputTokens: number;
+  requestTimeoutMs: number;
+}
+
+export interface AiRouterLogRecord {
+  event: 'ai_generation_succeeded' | 'ai_generation_failed';
+  route: AiRoute;
+  model: string;
+  durationMs: number;
+  outcome: 'success' | 'failure';
+  category?: AiErrorKind;
+  httpStatus?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  costUsd?: number;
+}
+
+export interface AiRouterLogger {
+  info(record: AiRouterLogRecord): void;
+  error(record: AiRouterLogRecord): void;
+}
+
+export const MAX_AI_INPUT_CHARS = 12_000;
+export const MAX_AI_INPUT_MESSAGES = 100;
+
+const truncationMarker =
+  '\n[The remainder of this message burst was omitted because it exceeded the input limit.]';
+
+const localeNames: Record<ReturnType<typeof resolveLocale>, string> = {
+  ru: 'Russian',
+  be: 'Belarusian',
+  en: 'English',
+};
+
+const defaultLogger: AiRouterLogger = {
+  info(record) {
+    console.info(JSON.stringify(record));
+  },
+  error(record) {
+    console.error(JSON.stringify(record));
+  },
+};
+
+export function buildAiMessages(
+  messages: string[],
+  language?: string,
+  maxInputChars = MAX_AI_INPUT_CHARS,
+): AiChatMessage[] {
+  const locale = resolveLocale(language);
+  const boundedMessages = boundMessages(messages, maxInputChars);
+  const systemPrompt = [
+    'You are Sofi, an AI assistant, not a human.',
+    `Answer in ${localeNames[locale]}.`,
+    'Be warm, concise, natural, and useful.',
+    'Treat the user messages below as one current request, in the order received.',
+    'Never imply browsing or external access unless the information was actually supplied.',
+  ].join(' ');
+
+  return [
+    { role: 'system', content: systemPrompt },
+    ...boundedMessages.map((content) => ({ role: 'user' as const, content })),
+  ];
+}
+
+function boundMessages(messages: string[], maxInputChars: number): string[] {
+  if (!Number.isInteger(maxInputChars) || maxInputChars <= 0) {
+    throw new AiGenerationError('configuration');
+  }
+
+  const totalLength = messages.reduce(
+    (total, message) => Math.min(maxInputChars + 1, total + message.length),
+    0,
+  );
+
+  if (
+    totalLength <= maxInputChars &&
+    messages.length <= MAX_AI_INPUT_MESSAGES
+  ) {
+    return [...messages];
+  }
+
+  const marker =
+    truncationMarker.length <= maxInputChars
+      ? truncationMarker
+      : truncationMarker.slice(-maxInputChars);
+  const contentLimit = maxInputChars - marker.length;
+  let remaining = contentLimit;
+  const bounded: string[] = [];
+
+  for (const message of messages) {
+    if (remaining <= 0 || bounded.length >= MAX_AI_INPUT_MESSAGES) break;
+
+    const part = message.slice(0, remaining);
+    bounded.push(part);
+    remaining -= part.length;
+
+    if (part.length < message.length) break;
+  }
+
+  if (bounded.length === 0) return [marker];
+  bounded[bounded.length - 1] += marker;
+
+  return bounded;
+}
+
+export function createAiRouter(
+  config: AiRouterConfig,
+  provider: AiProvider,
+  logger: AiRouterLogger = defaultLogger,
+): AiRouter {
+  return {
+    async generate(input) {
+      const model = config.models[input.route];
+      if (
+        !model ||
+        !Number.isInteger(config.maxOutputTokens) ||
+        config.maxOutputTokens <= 0 ||
+        !Number.isInteger(config.requestTimeoutMs) ||
+        config.requestTimeoutMs <= 0
+      ) {
+        const error = new AiGenerationError('configuration');
+        logger.error({
+          event: 'ai_generation_failed',
+          route: input.route,
+          model: model ?? 'unconfigured',
+          durationMs: 0,
+          outcome: 'failure',
+          category: error.kind,
+        });
+        throw error;
+      }
+
+      const startedAt = Date.now();
+
+      try {
+        const result = await provider.generate({
+          model,
+          messages: buildAiMessages(input.messages, input.language),
+          maxOutputTokens: config.maxOutputTokens,
+          timeoutMs: config.requestTimeoutMs,
+        });
+
+        const text = result.text.trim();
+        if (!text) throw new AiGenerationError('malformed_response');
+
+        logger.info({
+          event: 'ai_generation_succeeded',
+          route: input.route,
+          model,
+          durationMs: Date.now() - startedAt,
+          outcome: 'success',
+          ...(result.usage?.promptTokens !== undefined
+            ? { promptTokens: result.usage.promptTokens }
+            : {}),
+          ...(result.usage?.completionTokens !== undefined
+            ? { completionTokens: result.usage.completionTokens }
+            : {}),
+          ...(result.usage?.totalTokens !== undefined
+            ? { totalTokens: result.usage.totalTokens }
+            : {}),
+          ...(result.usage?.costUsd !== undefined
+            ? { costUsd: result.usage.costUsd }
+            : {}),
+        });
+
+        return { ...result, text };
+      } catch (cause) {
+        const error =
+          cause instanceof AiGenerationError
+            ? cause
+            : new AiGenerationError('network');
+        logger.error({
+          event: 'ai_generation_failed',
+          route: input.route,
+          model,
+          durationMs: Date.now() - startedAt,
+          outcome: 'failure',
+          category: error.kind,
+          ...(error.httpStatus !== undefined
+            ? { httpStatus: error.httpStatus }
+            : {}),
+        });
+        throw error;
+      }
+    },
+  };
+}

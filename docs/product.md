@@ -134,11 +134,11 @@ A particularly useful quality signal is a follow-up instruction after an answer,
 
 Sofi is free to users.
 
-Initial safety limits include:
+Planned safety limits for wider public rollout include:
 - per-user daily USD budget
 - daily message/image/web-search limits
 - per-request maximum cost
 - global daily/monthly budget
 - economy mode near the global budget ceiling
 
-Exact numbers are configurable and can change as real usage data becomes available.
+These controls are not yet enforced by the current application. The first AI generation feature currently limits request input size, output tokens, and request timeout, but does not cap aggregate spend. Implement and verify budget enforcement before wider public rollout. Exact thresholds should be configurable and adjusted using real usage data.

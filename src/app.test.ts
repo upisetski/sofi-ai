@@ -14,7 +14,7 @@ import { buildApp } from './app.js';
 import { createDb, type Db } from './db/client.js';
 import { migrate } from './db/migrations.js';
 import {
-  getTextBurstResponse,
+  getAiTemporaryErrorResponse,
   getWelcome,
   getWelcomeText,
   resolveLocale,
@@ -88,20 +88,15 @@ describe('localization', () => {
     expect(getWelcomeText('ru')).toContain('Я Софи');
     expect(getWelcomeText('be')).toContain('Я Сафі');
     expect(getWelcomeText('en')).toContain('Sofi');
-    expect(getTextBurstResponse('ru', ['first', 'second']).text).toBe(
-      'Думаю над вашим вопросом:\n\nfirst\n\nsecond',
+    expect(getAiTemporaryErrorResponse('ru').text).toBe(
+      'Сейчас не получается подготовить ответ. Попробуйте ещё раз чуть позже.',
     );
-    expect(getTextBurstResponse('be', ['hello']).text).toBe(
-      'Думаю над вашым пытаннем:\n\nhello',
+    expect(getAiTemporaryErrorResponse('be').text).toBe(
+      'Зараз не атрымліваецца падрыхтаваць адказ. Паспрабуйце яшчэ раз крыху пазней.',
     );
-    expect(getTextBurstResponse('en', ['hello']).text).toBe(
-      'Thinking about your question:\n\nhello',
+    expect(getAiTemporaryErrorResponse('en').text).toBe(
+      'I can’t prepare a response right now. Please try again shortly.',
     );
-
-    const longMessage = getTextBurstResponse('en', ['🙂'.repeat(1001)]).text;
-    expect([
-      ...longMessage.slice('Thinking about your question:\n\n'.length),
-    ]).toHaveLength(1000);
   });
 });
 

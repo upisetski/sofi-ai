@@ -1,0 +1,115 @@
+import {
+  AiGenerationError,
+  type AiProvider,
+} from '../../application/ai-router.js';
+
+const CHAT_COMPLETIONS_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+interface OpenRouterClientOptions {
+  apiKey?: string;
+  fetchImpl?: typeof fetch;
+}
+
+export function createOpenRouterClient(
+  options: OpenRouterClientOptions,
+): AiProvider {
+  const fetchImpl = options.fetchImpl ?? fetch;
+
+  return {
+    async generate(input) {
+      if (!options.apiKey) throw new AiGenerationError('configuration');
+
+      let response: Response;
+      try {
+        response = await fetchImpl(CHAT_COMPLETIONS_URL, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${options.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: input.model,
+            messages: input.messages,
+            max_tokens: input.maxOutputTokens,
+            provider: {
+              zdr: true,
+              data_collection: 'deny',
+              allow_fallbacks: false,
+            },
+          }),
+          signal: AbortSignal.timeout(input.timeoutMs),
+        });
+      } catch (cause) {
+        const name =
+          typeof cause === 'object' && cause !== null && 'name' in cause
+            ? String(cause.name)
+            : '';
+        if (name === 'TimeoutError' || name === 'AbortError') {
+          throw new AiGenerationError('timeout');
+        }
+        throw new AiGenerationError('network');
+      }
+
+      if (!response.ok) throw new AiGenerationError('http', response.status);
+
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new AiGenerationError('malformed_response');
+      }
+
+      return parseCompletion(payload);
+    },
+  };
+}
+
+function parseCompletion(payload: unknown) {
+  if (!isRecord(payload) || !Array.isArray(payload.choices)) {
+    throw new AiGenerationError('malformed_response');
+  }
+
+  const choice = payload.choices[0];
+  if (!isRecord(choice) || !isRecord(choice.message)) {
+    throw new AiGenerationError('malformed_response');
+  }
+
+  const content = choice.message.content;
+  if (typeof content !== 'string' || !content.trim()) {
+    throw new AiGenerationError('malformed_response');
+  }
+
+  const usage: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    costUsd?: number;
+  } = {};
+
+  if (isRecord(payload.usage)) {
+    const promptTokens = nonNegativeNumber(payload.usage.prompt_tokens);
+    const completionTokens = nonNegativeNumber(payload.usage.completion_tokens);
+    const totalTokens = nonNegativeNumber(payload.usage.total_tokens);
+    const costUsd = nonNegativeNumber(payload.usage.cost);
+    if (promptTokens !== undefined) usage.promptTokens = promptTokens;
+    if (completionTokens !== undefined)
+      usage.completionTokens = completionTokens;
+    if (totalTokens !== undefined) usage.totalTokens = totalTokens;
+    if (costUsd !== undefined) usage.costUsd = costUsd;
+  }
+
+  return {
+    text: content.trim(),
+    ...(Object.keys(usage).length > 0 ? { usage } : {}),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function nonNegativeNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined;
+}
