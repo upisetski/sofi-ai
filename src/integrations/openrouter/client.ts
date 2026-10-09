@@ -1,6 +1,5 @@
 import {
   AiGenerationError,
-  type AiGenerationErrorDetails,
   type AiProvider,
   type AiResponseIssue,
 } from '../../application/ai-router.js';
