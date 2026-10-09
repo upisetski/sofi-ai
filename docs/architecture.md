@@ -199,7 +199,7 @@ Route classes:
 - `vision`
 - `web`
 
-Business logic should not depend directly on a specific model name. The initial `cheap_text` route maps to `AI_MODEL_CHEAP_TEXT` (default `google/gemma-3-4b-it`). The OpenRouter adapter sets a request timeout, `max_tokens`, `provider.zdr: true`, `provider.data_collection: "deny"`, and disables provider fallback. The combined user input is capped at 12000 characters; generated output is capped by `AI_MAX_OUTPUT_TOKENS` (default 512).
+Business logic should not depend directly on a specific model name. The initial `cheap_text` route maps to `AI_MODEL_CHEAP_TEXT` (default `google/gemma-3-4b-it`). The OpenRouter adapter sets a request timeout and `max_tokens`, but does not hard-code provider selection, ZDR, or data-collection policy in each request; these policies are configured centrally in OpenRouter account privacy settings and guardrails where supported. Omitting request-level privacy options does not disable account-wide or guardrail enforcement. Free-tier routing does not support data-policy-based routing, so use only synthetic test messages unless the selected plan and endpoint provide the required privacy guarantees. Provider selection and fallback behavior use OpenRouter defaults. The combined user input is capped at 12000 characters; generated output is capped by `AI_MAX_OUTPUT_TOKENS` (default 512).
 
 The current worker completes its PostgreSQL job before attempting AI generation and delivery. Generation errors are observed through structured logs and a temporary-error response; there is no automatic retry or fallback, so a subsequent Viber delivery failure is not retried.
 
