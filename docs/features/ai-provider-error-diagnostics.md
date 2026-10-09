@@ -67,9 +67,9 @@ Malformed-response logs add a stable reason plus bounded response metadata. Exis
 
 ## Implementation checklist
 
-- [ ] Implementation complete
-- [ ] Tests added or updated
-- [ ] Documentation updated where needed
+- [x] Implementation complete
+- [x] Tests added or updated
+- [x] Documentation updated where needed
 - [ ] ADR added if a significant architectural decision was made
 - [ ] Full local checks pass
-- [ ] Focused PR opened
+- [x] Focused PR opened
