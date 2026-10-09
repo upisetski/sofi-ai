@@ -15,7 +15,7 @@ The first AI implementation should be deliberately small and verifiable:
       -> configured small text model
       -> Viber response
 
-The initial production/default model is `google/gemma-3-4b-it`, subject to the configured OpenRouter provider being Zero Data Retention (ZDR).
+The initial production/default model is `google/gemma-3-4b-it`. Privacy policy is configured centrally in OpenRouter account settings and guardrails where supported, rather than hard-coded into each completion request.
 
 ## User behavior
 
@@ -38,7 +38,7 @@ The first implementation handles text bursts only.
 - OpenRouter integration behind the application abstraction.
 - Configurable model selection with `cheap_text` as the initial route.
 - `google/gemma-3-4b-it` as the initial default model.
-- Request-level ZDR/privacy restrictions when calling OpenRouter.
+- Centralized OpenRouter privacy policy configuration rather than request-level ZDR/data-collection enforcement.
 - Construction of a small system instruction that keeps Sofi clearly AI, concise, helpful, and replies in the user's language.
 - Sending one generated response through the existing Viber client.
 - Normalized handling of successful OpenRouter responses.
@@ -66,7 +66,7 @@ The first implementation handles text bursts only.
 - All AI calls must go through the internal AI Router abstraction.
 - Application/business logic must not depend directly on OpenRouter-specific request or response formats.
 - The OpenRouter API key must come from environment/runtime configuration and must never be committed to the repository.
-- The OpenRouter request must request ZDR-compatible handling using provider/privacy controls supported by the gateway.
+- The OpenRouter adapter must not hard-code ZDR or data-collection policy in the completion request; configure privacy requirements centrally in OpenRouter settings/guardrails where supported.
 - The application must not log full user message content, prompts, images, or credentials.
 - The initial route must be configuration-driven:
   - `cheap_text` -> configured initial model.
@@ -81,7 +81,7 @@ The first implementation handles text bursts only.
 
 - [x] A debounced text burst is sent to the internal AI Router instead of the temporary echo handler.
 - [x] The AI Router resolves the `cheap_text` route from configuration.
-- [x] The OpenRouter integration sends the configured model and ZDR/privacy provider controls.
+- [x] The OpenRouter integration sends the configured model without imposing request-level provider privacy/routing restrictions.
 - [x] The OpenRouter API key is read from environment configuration only.
 - [x] A successful provider response is converted into one Viber text response.
 - [x] The user-facing response is not the old localized echo.
@@ -97,7 +97,7 @@ The first implementation handles text bursts only.
 - `AI_ENABLED` defaults to `true`; production requires `OPENROUTER_API_KEY` when AI is enabled. Disabling AI keeps the debounce path intact and sends a localized temporary-unavailable response.
 - `AI_MODEL_CHEAP_TEXT` defaults to `google/gemma-3-4b-it`. `AI_MAX_OUTPUT_TOKENS` defaults to `512` and accepts values from 1 through 8192. `AI_REQUEST_TIMEOUT_MS` defaults to `30000` and accepts values from 1000 through 120000.
 - The combined burst sent to the model is bounded to 12000 characters. If it exceeds that limit, the request preserves the beginning of the burst in order and marks the omitted remainder. Normal-sized bursts are passed as separate ordered user messages.
-- OpenRouter requests set `provider.zdr: true`, `provider.data_collection: "deny"`, and `provider.allow_fallbacks: false`. On HTTP errors, the adapter extracts only the structured provider error code and a sanitized, 300-character maximum error message. It does not log the raw provider response body, prompt, user text, API key, authorization header, or provider metadata.
+- OpenRouter requests send the configured model, messages, and `max_tokens`; they do not set request-level provider preferences for ZDR, data collection, or fallback behavior. Privacy enforcement must be configured centrally in OpenRouter settings/guardrails where supported. On HTTP errors, the adapter extracts only the structured provider error code and a sanitized, 300-character maximum error message. It does not log the raw provider response body, prompt, user text, API key, authorization header, or provider metadata.
 - Successful usage and cost metadata is logged when the provider returns it; it is not persisted to a usage table in this feature.
 - The worker completes the database job before generating and sending the outbound response. A generation failure is logged with safe metadata and produces a localized temporary-error message instead of an echo. This PR adds no retry: if Viber delivery also fails, the completed job is not retried and the response can be lost.
 
@@ -155,11 +155,11 @@ The initial prompt should be minimal and deterministic. It should communicate:
 
 Do not add a large personality prompt or complex intent taxonomy in this feature.
 
-### ZDR
+### ZDR and data-collection policy
 
-The OpenRouter request must explicitly use provider/privacy controls that require ZDR-compatible handling.
+Sofi does not enforce ZDR or data-collection policy through request-level provider parameters. Configure these policies centrally in OpenRouter account privacy settings and guardrails where supported. Account-wide and guardrail-level ZDR enforcement still applies when request-level `provider.zdr` is omitted; omitting the parameter does not turn off platform-level enforcement.
 
-Model selection alone must not be treated as proof of ZDR. The effective provider configuration must enforce the privacy requirement.
+Model selection alone is not proof of ZDR or no-training handling. The chosen OpenRouter plan and endpoint must support the required privacy guarantees. OpenRouter's free tier does not support data-policy-based routing, so use only synthetic test messages when those guarantees are not configured and verified.
 
 ### Errors
 
@@ -181,7 +181,7 @@ Do not add user content to ordinary logs. In particular, do not log:
 
 Provider/model identifiers, latency, request success/failure, and token/cost metadata may be logged or stored when available and when consistent with existing cost/observability design.
 
-The OpenRouter request should require ZDR/privacy-compatible routing.
+The OpenRouter adapter does not impose request-level privacy routing. Effective ZDR and data-collection policy must be verified in OpenRouter settings/guardrails and must be supported by the selected plan and endpoint. Do not send real user conversations when the required guarantees are not effective.
 
 No images are transmitted by this feature.
 
@@ -211,7 +211,7 @@ Errors should be distinguishable at least as:
 - AI Router maps `cheap_text` to the configured model.
 - AI Router does not expose OpenRouter-specific types to callers.
 - Prompt/message construction preserves the burst and locale.
-- OpenRouter client builds the expected request body, including ZDR/privacy provider controls.
+- OpenRouter client builds the expected request body without hard-coded provider privacy/routing options.
 - OpenRouter client parses a successful response into the normalized application result.
 - OpenRouter client converts non-success and malformed responses into normalized application errors.
 - HTTP error summaries expose only a sanitized provider code/message and never raw response bodies, metadata, credentials, or user content.
