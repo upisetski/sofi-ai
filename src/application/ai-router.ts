@@ -85,6 +85,7 @@ export interface AiRouterLogger {
 }
 
 export const MAX_AI_INPUT_CHARS = 12_000;
+export const MAX_AI_INPUT_MESSAGES = 100;
 
 const truncationMarker =
   '\n[The remainder of this message burst was omitted because it exceeded the input limit.]';
@@ -135,14 +136,23 @@ function boundMessages(messages: string[], maxInputChars: number): string[] {
     0,
   );
 
-  if (totalLength <= maxInputChars) return [...messages];
+  if (
+    totalLength <= maxInputChars &&
+    messages.length <= MAX_AI_INPUT_MESSAGES
+  ) {
+    return [...messages];
+  }
 
-  const contentLimit = Math.max(0, maxInputChars - truncationMarker.length);
+  const marker =
+    truncationMarker.length <= maxInputChars
+      ? truncationMarker
+      : truncationMarker.slice(-maxInputChars);
+  const contentLimit = maxInputChars - marker.length;
   let remaining = contentLimit;
   const bounded: string[] = [];
 
   for (const message of messages) {
-    if (remaining <= 0) break;
+    if (remaining <= 0 || bounded.length >= MAX_AI_INPUT_MESSAGES) break;
 
     const part = message.slice(0, remaining);
     bounded.push(part);
@@ -151,8 +161,8 @@ function boundMessages(messages: string[], maxInputChars: number): string[] {
     if (part.length < message.length) break;
   }
 
-  if (bounded.length === 0) bounded.push('');
-  bounded[bounded.length - 1] += truncationMarker;
+  if (bounded.length === 0) return [marker];
+  bounded[bounded.length - 1] += marker;
 
   return bounded;
 }
