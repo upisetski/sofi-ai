@@ -14,7 +14,7 @@ import { buildApp } from './app.js';
 import { createDb, type Db } from './db/client.js';
 import { migrate } from './db/migrations.js';
 import {
-  getTextBurstResponse,
+  getAiTemporaryErrorResponse,
   getWelcome,
   getWelcomeText,
   resolveLocale,
