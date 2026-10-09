@@ -50,7 +50,14 @@ export function createOpenRouterClient(
         throw new AiGenerationError('network');
       }
 
-      if (!response.ok) throw new AiGenerationError('http', response.status);
+      if (!response.ok) {
+        const providerDetails = await readOpenRouterError(
+          response,
+          options.apiKey,
+          input.messages,
+        );
+        throw new AiGenerationError('http', response.status, providerDetails);
+      }
 
       let payload: unknown;
       try {
@@ -62,6 +69,82 @@ export function createOpenRouterClient(
       return parseCompletion(payload);
     },
   };
+}
+
+async function readOpenRouterError(
+  response: Response,
+  apiKey: string,
+  messages: AiProviderRequestMessages,
+): Promise<{
+  providerErrorCode?: string | number;
+  providerErrorMessage?: string;
+}> {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(await response.text());
+  } catch {
+    return {};
+  }
+
+  if (!isRecord(payload) || !isRecord(payload.error)) return {};
+
+  const providerErrorCode = normalizeProviderErrorCode(payload.error.code);
+  const rawMessage = payload.error.message;
+  const providerErrorMessage =
+    typeof rawMessage === 'string'
+      ? sanitizeProviderErrorMessage(rawMessage, apiKey, messages)
+      : undefined;
+
+  return {
+    ...(providerErrorCode !== undefined ? { providerErrorCode } : {}),
+    ...(providerErrorMessage ? { providerErrorMessage } : {}),
+  };
+}
+
+type AiProviderRequestMessages = Array<{ role: string; content: string }>;
+
+function normalizeProviderErrorCode(
+  value: unknown,
+): string | number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (
+    typeof value === 'string' &&
+    value.length <= 64 &&
+    /^[a-zA-Z0-9_.-]+$/.test(value)
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function sanitizeProviderErrorMessage(
+  message: string,
+  apiKey: string,
+  messages: AiProviderRequestMessages,
+): string | undefined {
+  let safeMessage = [...message]
+    .map((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127 ? ' ' : character;
+    })
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (apiKey) safeMessage = safeMessage.split(apiKey).join('[redacted]');
+  safeMessage = safeMessage
+    .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+    .replace(/\bsk-or-v1-[a-zA-Z0-9_-]+\b/g, '[redacted key]');
+
+  for (const message of messages) {
+    const content = message.content.trim();
+    if (content.length >= 4) {
+      safeMessage = safeMessage.split(content).join('[redacted input]');
+    }
+  }
+
+  safeMessage = safeMessage.slice(0, 300);
+  return safeMessage || undefined;
 }
 
 function parseCompletion(payload: unknown) {

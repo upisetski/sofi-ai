@@ -87,6 +87,7 @@ describe('AI Router', () => {
     expect(messages).toHaveLength(MAX_AI_INPUT_MESSAGES);
     expect(messages.at(-1)?.content).toContain('input limit');
   });
+
   it('normalizes unknown provider errors and never logs prompt contents', async () => {
     const records: AiRouterLogRecord[] = [];
     const logger = {
@@ -113,6 +114,43 @@ describe('AI Router', () => {
     expect((thrown as AiGenerationError).kind).toBe('network');
     expect((thrown as Error).message).not.toContain('private prompt text');
     expect(JSON.stringify(records)).not.toContain('private prompt text');
+  });
+
+  it('logs sanitized provider error details for HTTP failures', async () => {
+    const records: AiRouterLogRecord[] = [];
+    const logger = {
+      info: vi.fn((record: AiRouterLogRecord) => records.push(record)),
+      error: vi.fn((record: AiRouterLogRecord) => records.push(record)),
+    };
+    const providerError = new AiGenerationError('http', 404, {
+      providerErrorCode: 404,
+      providerErrorMessage:
+        'No endpoints found matching your privacy requirements',
+    });
+    const router = createAiRouter(
+      config,
+      { generate: vi.fn().mockRejectedValue(providerError) },
+      logger,
+    );
+
+    await expect(
+      router.generate({
+        route: 'cheap_text',
+        messages: ['private user text'],
+      }),
+    ).rejects.toMatchObject({ kind: 'http', httpStatus: 404 });
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'ai_generation_failed',
+        category: 'http',
+        httpStatus: 404,
+        providerErrorCode: 404,
+        providerErrorMessage:
+          'No endpoints found matching your privacy requirements',
+      }),
+    );
+    expect(JSON.stringify(records)).not.toContain('private user text');
   });
 
   it('reports a missing route model as a configuration error', async () => {

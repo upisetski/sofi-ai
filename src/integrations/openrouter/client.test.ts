@@ -72,12 +72,21 @@ describe('OpenRouter client', () => {
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it('normalizes HTTP errors without reading or exposing the response body', async () => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(
-        new Response('sensitive provider response body', { status: 429 }),
-      );
+  it('includes a sanitized OpenRouter error summary without logging the raw body', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            message:
+              'No endpoints found matching your privacy requirements. Prompt: second message. Bearer test-secret',
+            code: 404,
+            metadata: { privateDetails: 'must not be logged' },
+          },
+          user_id: 'private-user-id',
+        }),
+        { status: 404, headers: { 'content-type': 'application/json' } },
+      ),
+    );
     const client = createOpenRouterClient({ apiKey: 'test-secret', fetchImpl });
 
     let thrown: unknown;
@@ -88,11 +97,31 @@ describe('OpenRouter client', () => {
     }
 
     expect(thrown).toBeInstanceOf(AiGenerationError);
-    expect(thrown).toMatchObject({ kind: 'http', httpStatus: 429 });
-    expect((thrown as Error).message).not.toContain(
-      'sensitive provider response body',
-    );
-    expect((thrown as Error).message).not.toContain('test-secret');
+    expect(thrown).toMatchObject({
+      kind: 'http',
+      httpStatus: 404,
+      providerErrorCode: 404,
+      providerErrorMessage:
+        'No endpoints found matching your privacy requirements. Prompt: [redacted input]. Bearer [redacted]',
+    });
+    expect(JSON.stringify(thrown)).not.toContain('second message');
+    expect(JSON.stringify(thrown)).not.toContain('test-secret');
+    expect(JSON.stringify(thrown)).not.toContain('must not be logged');
+    expect(JSON.stringify(thrown)).not.toContain('private-user-id');
+  });
+
+  it('handles non-JSON HTTP errors without exposing the response body', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response('sensitive provider response body', { status: 429 }),
+      );
+    const client = createOpenRouterClient({ apiKey: 'test-secret', fetchImpl });
+
+    await expect(client.generate(request)).rejects.toMatchObject({
+      kind: 'http',
+      httpStatus: 429,
+    });
   });
 
   it('normalizes invalid JSON responses', async () => {

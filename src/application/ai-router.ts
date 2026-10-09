@@ -36,12 +36,27 @@ export type AiErrorKind =
 export class AiGenerationError extends Error {
   readonly kind: AiErrorKind;
   readonly httpStatus?: number;
+  readonly providerErrorCode?: string | number;
+  readonly providerErrorMessage?: string;
 
-  constructor(kind: AiErrorKind, httpStatus?: number) {
+  constructor(
+    kind: AiErrorKind,
+    httpStatus?: number,
+    providerDetails: {
+      providerErrorCode?: string | number;
+      providerErrorMessage?: string;
+    } = {},
+  ) {
     super(`AI generation failed: ${kind}`);
     this.name = 'AiGenerationError';
     this.kind = kind;
     if (httpStatus !== undefined) this.httpStatus = httpStatus;
+    if (providerDetails.providerErrorCode !== undefined) {
+      this.providerErrorCode = providerDetails.providerErrorCode;
+    }
+    if (providerDetails.providerErrorMessage !== undefined) {
+      this.providerErrorMessage = providerDetails.providerErrorMessage;
+    }
   }
 }
 
@@ -69,6 +84,8 @@ export interface AiRouterLogRecord {
   outcome: 'success' | 'failure';
   category?: AiErrorKind;
   httpStatus?: number;
+  providerErrorCode?: string | number;
+  providerErrorMessage?: string;
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
@@ -238,6 +255,12 @@ export function createAiRouter(
           category: error.kind,
           ...(error.httpStatus !== undefined
             ? { httpStatus: error.httpStatus }
+            : {}),
+          ...(error.providerErrorCode !== undefined
+            ? { providerErrorCode: error.providerErrorCode }
+            : {}),
+          ...(error.providerErrorMessage !== undefined
+            ? { providerErrorMessage: error.providerErrorMessage }
             : {}),
         });
         throw error;
