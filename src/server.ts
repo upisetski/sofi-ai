@@ -18,9 +18,7 @@ const aiRouter = env.AI_ENABLED
         requestTimeoutMs: env.AI_REQUEST_TIMEOUT_MS,
       },
       createOpenRouterClient({
-        ...(env.OPENROUTER_API_KEY
-          ? { apiKey: env.OPENROUTER_API_KEY }
-          : {}),
+        ...(env.OPENROUTER_API_KEY ? { apiKey: env.OPENROUTER_API_KEY } : {}),
       }),
     )
   : undefined;
