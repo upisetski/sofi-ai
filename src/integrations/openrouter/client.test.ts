@@ -33,7 +33,7 @@ const request: AiProviderRequest = {
 };
 
 describe('OpenRouter client', () => {
-  it('sends Chat Completions requests with output, timeout, and privacy controls', async () => {
+  it('sends Chat Completions requests with output and timeout limits', async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValue(successResponse());
@@ -63,11 +63,6 @@ describe('OpenRouter client', () => {
       model: 'google/gemma-3-4b-it',
       messages: request.messages,
       max_tokens: 512,
-      provider: {
-        zdr: true,
-        data_collection: 'deny',
-        allow_fallbacks: false,
-      },
     });
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
