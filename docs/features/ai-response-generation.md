@@ -90,7 +90,7 @@ The first implementation handles text bursts only.
 - [x] Automated tests do not require network access or OpenRouter credentials.
 - [x] Existing debounce tests still pass without changing debounce timing/semantics.
 - [x] The feature can be disabled or reconfigured by changing runtime configuration rather than source-code business logic.
-- [ ] Full project checks pass.
+- [x] Full project checks pass.
 
 ## Implemented limits and failure behavior
 
