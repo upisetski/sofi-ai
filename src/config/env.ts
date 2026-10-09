@@ -17,7 +17,10 @@ export const envSchema = z
       .enum(['true', 'false'])
       .default('true')
       .transform((value) => value === 'true'),
-    OPENROUTER_API_KEY: z.string().min(1).optional(),
+    OPENROUTER_API_KEY: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().min(1).optional(),
+    ),
     AI_MODEL_CHEAP_TEXT: z.string().min(1).default('google/gemma-3-4b-it'),
     AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(8192).default(512),
     AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
