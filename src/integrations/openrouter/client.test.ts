@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { AiGenerationError, type AiProviderRequest } from '../../application/ai-router.js';
+import {
+  AiGenerationError,
+  type AiProviderRequest,
+} from '../../application/ai-router.js';
 import { createOpenRouterClient } from './client.js';
 
 function successResponse() {
@@ -31,7 +34,9 @@ const request: AiProviderRequest = {
 
 describe('OpenRouter client', () => {
   it('sends Chat Completions requests with output, timeout, and privacy controls', async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(successResponse());
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(successResponse());
     const client = createOpenRouterClient({
       apiKey: 'test-openrouter-secret',
       fetchImpl,
@@ -68,9 +73,11 @@ describe('OpenRouter client', () => {
   });
 
   it('normalizes HTTP errors without reading or exposing the response body', async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response('sensitive provider response body', { status: 429 }),
-    );
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response('sensitive provider response body', { status: 429 }),
+      );
     const client = createOpenRouterClient({ apiKey: 'test-secret', fetchImpl });
 
     let thrown: unknown;
@@ -82,14 +89,16 @@ describe('OpenRouter client', () => {
 
     expect(thrown).toBeInstanceOf(AiGenerationError);
     expect(thrown).toMatchObject({ kind: 'http', httpStatus: 429 });
-    expect((thrown as Error).message).not.toContain('sensitive provider response body');
+    expect((thrown as Error).message).not.toContain(
+      'sensitive provider response body',
+    );
     expect((thrown as Error).message).not.toContain('test-secret');
   });
 
   it('normalizes invalid JSON responses', async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response('not json', { status: 200 }),
-    );
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response('not json', { status: 200 }));
     const client = createOpenRouterClient({ apiKey: 'test-secret', fetchImpl });
 
     await expect(client.generate(request)).rejects.toMatchObject({
@@ -102,9 +111,11 @@ describe('OpenRouter client', () => {
     ['missing message content', { choices: [{ message: {} }] }],
     ['empty assistant content', { choices: [{ message: { content: '   ' } }] }],
   ])('rejects malformed successful payloads: %s', async (_label, payload) => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(JSON.stringify(payload), { status: 200 }),
-    );
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify(payload), { status: 200 }),
+      );
     const client = createOpenRouterClient({ apiKey: 'test-secret', fetchImpl });
 
     await expect(client.generate(request)).rejects.toMatchObject({
@@ -125,9 +136,9 @@ describe('OpenRouter client', () => {
       kind: 'timeout',
     });
 
-    const networkFetch = vi.fn<typeof fetch>().mockRejectedValue(
-      new Error('sensitive network details'),
-    );
+    const networkFetch = vi
+      .fn<typeof fetch>()
+      .mockRejectedValue(new Error('sensitive network details'));
     const networkClient = createOpenRouterClient({
       apiKey: 'test-secret',
       fetchImpl: networkFetch,
@@ -139,7 +150,9 @@ describe('OpenRouter client', () => {
     try {
       await networkClient.generate(request);
     } catch (error) {
-      expect((error as Error).message).not.toContain('sensitive network details');
+      expect((error as Error).message).not.toContain(
+        'sensitive network details',
+      );
       expect((error as Error).message).not.toContain('test-secret');
     }
   });
