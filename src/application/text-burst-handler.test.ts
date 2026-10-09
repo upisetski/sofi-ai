@@ -75,19 +75,11 @@ describe('handleTextBurstComplete', () => {
       model: string;
       max_tokens: number;
       messages: Array<{ role: string; content: string }>;
-      provider: {
-        zdr: boolean;
-        data_collection: string;
-        allow_fallbacks: boolean;
-      };
+      provider?: unknown;
     };
     expect(body.model).toBe('google/gemma-3-4b-it');
     expect(body.max_tokens).toBe(512);
-    expect(body.provider).toEqual({
-      zdr: true,
-      data_collection: 'deny',
-      allow_fallbacks: false,
-    });
+    expect(body).not.toHaveProperty('provider');
     expect(body.messages[0]?.content).toContain('Belarusian');
     expect(body.messages.slice(1)).toEqual([
       { role: 'user', content: 'Першае паведамленне' },
