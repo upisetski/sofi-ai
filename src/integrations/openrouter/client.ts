@@ -150,13 +150,13 @@ function sanitizeProviderErrorMessage(
       return code < 32 || code === 127 ? ' ' : character;
     })
     .join('')
-    .replace(/\\s+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 
   if (apiKey) safeMessage = safeMessage.split(apiKey).join('[redacted]');
   safeMessage = safeMessage
-    .replace(/Bearer\\s+\\S+/gi, 'Bearer [redacted]')
-    .replace(/\\bsk-or-v1-[a-zA-Z0-9_-]+\\b/g, '[redacted key]');
+    .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+    .replace(/\bsk-or-v1-[a-zA-Z0-9_-]+\b/g, '[redacted key]');
 
   for (const message of messages) {
     const content = message.content.trim();
@@ -276,7 +276,7 @@ function malformedResponse(
 function normalizeContentType(value: string | null): string | undefined {
   if (!value) return undefined;
   const mimeType = value.split(';', 1)[0]?.trim().toLowerCase();
-  return mimeType && /^[a-z0-9.+_-]+\\/[a-z0-9.+_-]+$/.test(mimeType)
+  return mimeType && /^[a-z0-9.+_-]+\/[a-z0-9.+_-]+$/.test(mimeType)
     ? mimeType
     : undefined;
 }
