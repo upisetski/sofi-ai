@@ -23,16 +23,26 @@ export const envSchema = z
     ),
     AI_MODEL_CHEAP_TEXT: z.string().min(1).default('google/gemma-3-4b-it'),
     AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(8192).default(512),
-    AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
+    AI_REQUEST_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(120000)
+      .default(30000),
     SENTRY_DSN: z.string().optional(),
     LOG_LEVEL: z.string().default('info'),
   })
   .superRefine((config, ctx) => {
-    if (config.NODE_ENV === 'production' && config.AI_ENABLED && !config.OPENROUTER_API_KEY) {
+    if (
+      config.NODE_ENV === 'production' &&
+      config.AI_ENABLED &&
+      !config.OPENROUTER_API_KEY
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['OPENROUTER_API_KEY'],
-        message: 'OPENROUTER_API_KEY is required when AI is enabled in production',
+        message:
+          'OPENROUTER_API_KEY is required when AI is enabled in production',
       });
     }
 
