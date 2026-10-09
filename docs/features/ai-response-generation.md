@@ -79,18 +79,31 @@ The first implementation handles text bursts only.
 
 ## Acceptance criteria
 
-- [ ] A debounced text burst is sent to the internal AI Router instead of the temporary echo handler.
-- [ ] The AI Router resolves the `cheap_text` route from configuration.
-- [ ] The OpenRouter integration sends the configured model and ZDR/privacy provider controls.
-- [ ] The OpenRouter API key is read from environment configuration only.
-- [ ] A successful provider response is converted into one Viber text response.
-- [ ] The user-facing response is not the old localized echo.
-- [ ] The request contains the debounced burst and locale/language context.
-- [ ] Provider errors do not expose API keys, raw request headers, or full user content in logs/errors.
-- [ ] Automated tests do not require network access or OpenRouter credentials.
-- [ ] Existing debounce tests still pass without changing debounce timing/semantics.
-- [ ] The feature can be disabled or reconfigured by changing runtime configuration rather than source-code business logic.
+- [x] A debounced text burst is sent to the internal AI Router instead of the temporary echo handler.
+- [x] The AI Router resolves the `cheap_text` route from configuration.
+- [x] The OpenRouter integration sends the configured model and ZDR/privacy provider controls.
+- [x] The OpenRouter API key is read from environment configuration only.
+- [x] A successful provider response is converted into one Viber text response.
+- [x] The user-facing response is not the old localized echo.
+- [x] The request contains the debounced burst and locale/language context.
+- [x] Provider errors do not expose API keys, raw request headers, or full user content in logs/errors.
+- [x] Automated tests do not require network access or OpenRouter credentials.
+- [x] Existing debounce tests still pass without changing debounce timing/semantics.
+- [x] The feature can be disabled or reconfigured by changing runtime configuration rather than source-code business logic.
 - [ ] Full project checks pass.
+
+## Implemented limits and failure behavior
+
+- `AI_ENABLED` defaults to `true`; production requires `OPENROUTER_API_KEY` when AI is enabled. Disabling AI keeps the debounce path intact and sends a localized temporary-unavailable response.
+- `AI_MODEL_CHEAP_TEXT` defaults to `google/gemma-3-4b-it`. `AI_MAX_OUTPUT_TOKENS` defaults to `512` and accepts values from 1 through 8192. `AI_REQUEST_TIMEOUT_MS` defaults to `30000` and accepts values from 1000 through 120000.
+- The combined burst sent to the model is bounded to 12000 characters. If it exceeds that limit, the request preserves the beginning of the burst in order and marks the omitted remainder. Normal-sized bursts are passed as separate ordered user messages.
+- OpenRouter requests set `provider.zdr: true`, `provider.data_collection: "deny"`, and `provider.allow_fallbacks: false`. No prompt, user text, API key, authorization header, or raw provider response body is written to logs.
+- Successful usage and cost metadata is logged when the provider returns it; it is not persisted to a usage table in this feature.
+- The worker completes the database job before generating and sending the outbound response. A generation failure is logged with safe metadata and produces a localized temporary-error message instead of an echo. This PR adds no retry: if Viber delivery also fails, the completed job is not retried and the response can be lost.
+
+### Cost-control gap before public rollout
+
+The current application does not enforce the per-user daily USD budget, per-user request limits, per-request maximum cost guard, global daily/monthly budgets, or economy mode described as planned architecture safeguards. Input-size and output-token caps limit individual requests but do not cap aggregate spend. Cost metadata is logged when available, not reserved or reconciled in PostgreSQL. Implement and verify those budgets before wider public rollout.
 
 ## Technical notes
 
