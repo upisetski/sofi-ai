@@ -12,7 +12,7 @@ Before making non-trivial changes, read:
 - [MVP roadmap and release gates](docs/roadmap.md)
 - [Architecture decisions](docs/decisions/)
 
-These documents are the repository source of truth for product and engineering context. They are intentionally initial versions and should evolve with the project.
+These documents are the repository source of truth for product and engineering context. Keep them factual and current; `docs/roadmap.md` is the source of truth for first-MVP scope, sequencing, and release gates.
 
 ## Stack
 
