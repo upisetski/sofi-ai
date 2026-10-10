@@ -12,10 +12,11 @@ Sofi's launch interaction is:
 
 > Send it to Sofi. We'll figure it out.
 
-Initial capabilities:
-- text input
-- image input
+First external MVP scope (see [docs/roadmap.md](docs/roadmap.md)):
+- text input with bounded multi-turn conversation context
 - web search when current information is required
+
+Image input, audio, video, and document processing are deferred until after the first MVP.
 
 Not in the initial MVP:
 - audio
@@ -47,7 +48,7 @@ Do not introduce new infrastructure unless a concrete requirement or measured bo
 
 For every new feature:
 
-1. Read AGENTS.md, docs/product.md, and docs/architecture.md.
+1. Read AGENTS.md, docs/product.md, docs/architecture.md, and docs/roadmap.md.
 2. Create a feature specification from docs/features/_template.md at docs/features/<feature-name>.md.
 3. Define the smallest useful scope and explicit acceptance criteria before implementation.
 4. Inspect the existing implementation and relevant tests before making assumptions.
