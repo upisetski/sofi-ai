@@ -11,6 +11,8 @@ The MVP architecture should be:
 
 We optimize for learning speed, not hypothetical scale.
 
+The first external release is text + bounded multi-turn context + web search. Its required work packages and release gates are tracked in the [MVP roadmap](roadmap.md). Image/vision is deferred from this release.
+
 ## Application structure and business-logic boundaries
 
 The application uses a small layered structure. The layers have explicit responsibilities:
@@ -193,15 +195,15 @@ ai.generate({
 })
 ```
 
-Route classes:
+Target route classes for the first text + web MVP:
 - `cheap_text`
-- `strong_text`
-- `vision`
 - `web`
 
-Business logic should not depend directly on a specific model name. The initial `cheap_text` route maps to `AI_MODEL_CHEAP_TEXT` (default `google/gemma-3-4b-it`). The OpenRouter adapter sets a request timeout and `max_tokens`, but does not hard-code provider selection, ZDR, or data-collection policy in each request; these policies are configured centrally in OpenRouter account privacy settings and guardrails where supported. Omitting request-level privacy options does not disable account-wide or guardrail enforcement. Free-tier routing does not support data-policy-based routing, so use only synthetic test messages unless the selected plan and endpoint provide the required privacy guarantees. Provider selection and fallback behavior use OpenRouter defaults. The combined user input is capped at 12000 characters; generated output is capped by `AI_MAX_OUTPUT_TOKENS` (default 512).
+`strong_text` may be added later if evaluations justify its cost. `vision` is deferred until after this MVP.
 
-The current worker completes its PostgreSQL job before attempting AI generation and delivery. Generation errors are observed through structured logs and a temporary-error response; there is no automatic retry or fallback, so a subsequent Viber delivery failure is not retried.
+Business logic should not depend directly on a specific model name. The initial `cheap_text` route maps to `AI_MODEL_CHEAP_TEXT` (default `google/gemma-3-4b-it`). The OpenRouter adapter sets a request timeout and `max_tokens`, but does not hard-code provider selection, ZDR, or data-collection policy in each request; these policies are configured centrally in OpenRouter account privacy settings and guardrails where supported. Omitting request-level privacy options does not disable account-wide or guardrail enforcement. Free-tier routing does not support data-policy-based routing, so use only synthetic test messages unless the selected plan and endpoint provide the required privacy guarantees. The current implementation uses OpenRouter defaults for provider selection and fallback. Before the MVP, configure and test route-specific models and bounded fallback/retry behavior, as described in the [roadmap](roadmap.md). The combined user input is capped at 12000 characters; generated output is capped by `AI_MAX_OUTPUT_TOKENS` (default 512).
+
+The current worker completes its PostgreSQL job before attempting AI generation and delivery. Generation errors are observed through structured logs and a temporary-error response; there is no automatic retry or fallback, so a subsequent Viber delivery failure is not retried. This is a known pre-MVP reliability gap: persist turn/reply and delivery state, then implement bounded recovery as specified by the [roadmap](roadmap.md).
 
 ## OpenRouter
 
@@ -213,9 +215,9 @@ Specific models remain configuration, not product logic.
 
 Search only when current information is needed. When search is used, the answer should include useful sources.
 
-## Vision
+## Vision (deferred until after the first MVP)
 
-Launch supports images only.
+The first external MVP accepts text input only. If vision is added later, support images only in that feature's scope.
 
 ```text
 Viber media URL
@@ -235,9 +237,7 @@ Do not persist images by default.
 
 ## Data
 
-PostgreSQL is the persistent store for users, conversations, conversation events, messages, jobs, AI requests, daily usage, and analytics events.
-
-The application schema is introduced in feature PRs rather than the initial environment bootstrap.
+Current PostgreSQL persistence covers users, conversations, inbound events/messages, and jobs. Durable assistant-turn/delivery state, AI usage and cost accounting, and product analytics persistence still need to be introduced in focused feature PRs. Do not assume these tables/controls already exist because they appear in a target design.
 
 ## Rate and budget protection
 
@@ -251,7 +251,7 @@ Planned public-launch protection should, before an OpenRouter request:
 7. record actual cost
 8. release unused reservation
 
-**Implementation status:** these per-user limits, per-request cost guard, reservations/reconciliation, global daily/monthly budgets, economy mode, and hard ceiling are not enforced by the current application. The AI response feature only enforces per-request input-size, output-token, and timeout limits. Do not treat the architecture list above as implemented controls; close this gap before wider public rollout.
+**Implementation status:** these per-user limits, per-request cost guard, reservations/reconciliation, global daily/monthly budgets, economy mode, and hard ceiling are not enforced by the current application. The AI response feature only enforces per-request input-size, output-token, and timeout limits. Do not treat the architecture list above as implemented controls; close this gap before any external user rollout.
 
 ## Privacy principles
 
@@ -272,11 +272,11 @@ Structured application logs. Do not log sensitive user content.
 
 ### Sentry
 
-Runtime and integration error monitoring.
+Sentry is the intended runtime and integration error-reporting service, but a `SENTRY_DSN` environment variable alone does not initialize the SDK. Wire and verify actual error reporting before the first external rollout, or document and implement an alternative.
 
 ### Product analytics
 
-Store product events and AI usage metadata in PostgreSQL initially.
+Minimal product events and AI usage/cost metadata should be stored in PostgreSQL initially. This is a roadmap item, not a claim that complete product analytics is already implemented.
 
 ## Admin / dashboard
 
@@ -300,32 +300,31 @@ PostgreSQL will be added as a Railway managed service when the database layer is
 
 ## Evolution path
 
-### Stage 0
+### Current implemented baseline
 
-- one Node.js application
-- PostgreSQL
-- OpenRouter
+- One Node.js application.
+- PostgreSQL-backed event persistence and jobs.
+- OpenRouter through the internal AI Router.
+- Text-only generation after the existing debounce.
 
-### Stage 1
+### Before the first external MVP
 
-- real user analytics
-- stronger rate/budget controls
-- PostgreSQL-backed jobs
+Follow the ordered work packages and explicit release gates in [docs/roadmap.md](roadmap.md):
 
-### Stage 2
+1. Multi-turn context plus durable turn/reply and delivery lifecycle.
+2. Usage/cost accounting and enforced user/request/global limits.
+3. Configurable `cheap_text` and `web` routes, web search, and bounded fallbacks.
+4. Runtime monitoring, cost visibility, and minimal product analytics.
+5. Provider/search privacy verification and end-to-end release validation.
 
-Only if required:
-- Redis
-- BullMQ
-- dedicated workers
-- object storage
+Instrument observability as each work package is implemented; this list does not imply these capabilities already exist.
 
-### Stage 3
+### After the MVP, only if required
 
-Only if required:
-- infrastructure monitoring stack
-- dedicated analytics store
-- additional services
+- Image/vision support.
+- Additional model routes such as `strong_text` when evaluation supports them.
+- Redis, BullMQ, or dedicated workers.
+- Object storage, a separate analytics store, or a custom admin frontend.
 
 ## Architectural principle
 
