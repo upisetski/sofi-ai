@@ -214,6 +214,7 @@ The repository already includes:
 The first external MVP is text + bounded multi-turn context + web search; see [docs/roadmap.md](docs/roadmap.md) for work still required before launch.
 
 The first MVP does not include image/vision input, audio, video, or document processing. It also does not introduce:
+
 - Redis
 - BullMQ
 - S3/object storage
