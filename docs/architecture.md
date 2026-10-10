@@ -296,7 +296,7 @@ root Dockerfile
 Node.js application
 ```
 
-PostgreSQL will be added as a Railway managed service when the database layer is implemented.
+Railway PostgreSQL is the intended managed production database. The application runs database migrations before accepting traffic and checks PostgreSQL readiness through `/health`.
 
 ## Evolution path
 
