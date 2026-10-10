@@ -16,7 +16,7 @@ The first external MVP scope and implementation order are defined in the [MVP ro
 
 Users should be able to send text messages without learning commands. The first external MVP includes bounded multi-turn conversations and web search when current information is required. Image input is deferred until after this MVP.
 
-## Initial capabilities
+## Product capabilities
 
 ### Write
 
@@ -110,7 +110,7 @@ Initial intent buckets:
 - rewrite
 - explain
 - ideas
-- vision
+- web
 - other
 
 Analytics should be used to discover the real distribution rather than assuming one segment is the winner.
@@ -137,7 +137,7 @@ Sofi is free to users.
 
 Required safety limits before the first external user rollout include:
 - per-user daily USD budget
-- daily message/image/web-search limits
+- daily text-request and web-search limits
 - per-request maximum cost
 - global daily/monthly budget
 - economy mode near the global budget ceiling
