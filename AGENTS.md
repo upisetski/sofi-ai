@@ -18,7 +18,8 @@ First external MVP scope (see [docs/roadmap.md](docs/roadmap.md)):
 
 Image input, audio, video, and document processing are deferred until after the first MVP.
 
-Not in the initial MVP:
+Not in the first external MVP:
+- image input
 - audio
 - video
 - document processing
@@ -103,11 +104,11 @@ All AI provider calls go through the internal AI Router.
 
 Application code should not hard-code a specific model/provider in business logic.
 
-Use route classes such as:
-- cheap_text
-- strong_text
-- vision
-- web
+The first external MVP uses:
+- `cheap_text`
+- `web`
+
+Add `strong_text` or `vision` only when a later product decision and evaluation justify them.
 
 ## Data and privacy
 
