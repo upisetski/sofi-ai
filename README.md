@@ -9,9 +9,10 @@ Before making non-trivial changes, read:
 - [Agent instructions](AGENTS.md)
 - [Product context](docs/product.md)
 - [Architecture](docs/architecture.md)
+- [MVP roadmap and release gates](docs/roadmap.md)
 - [Architecture decisions](docs/decisions/)
 
-These documents are the repository source of truth for product and engineering context. They are intentionally initial versions and should evolve with the project.
+These documents are the repository source of truth for product and engineering context. Keep them factual and current; `docs/roadmap.md` is the source of truth for first-MVP scope, sequencing, and release gates.
 
 ## Stack
 
@@ -201,14 +202,18 @@ The repository already includes:
 - Viber webhook validation and event processing
 - PostgreSQL schema and migrations
 - PostgreSQL-backed background jobs
-- message ordering and 10-second text debounce with localized echo
+- message ordering and 10-second text debounce
+- OpenRouter-backed AI text responses with localized failure handling
+- sanitized OpenRouter error diagnostics
 - localized responses
 - production Docker image
 - Railway-compatible runtime configuration
 
 ## Deliberately deferred
 
-The MVP does not introduce:
+The first external MVP is text + bounded multi-turn context + web search; see [docs/roadmap.md](docs/roadmap.md) for work still required before launch.
+
+The first MVP does not include image/vision input, audio, video, or document processing. It also does not introduce:
 
 - Redis
 - BullMQ

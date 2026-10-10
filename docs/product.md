@@ -8,13 +8,15 @@ Sofi is a free AI assistant available in Viber, initially targeted at Belarusian
 
 The core product hypothesis is that Viber is a convenient place to access AI for people who may not use dedicated AI products directly.
 
+The first external MVP scope and implementation order are defined in the [MVP roadmap](roadmap.md).
+
 ## Core interaction
 
 > **Send it to Sofi. We'll figure it out.**
 
-Users should be able to send a message or a photo without learning commands.
+Users should be able to send text messages without learning commands. The first external MVP includes bounded multi-turn conversations and web search when current information is required. Image input is deferred until after this MVP.
 
-## Initial capabilities
+## Product capabilities
 
 ### Write
 
@@ -45,7 +47,7 @@ Users should be able to send a message or a photo without learning commands.
 - alternatives
 - suggestions
 
-### Vision
+### Vision (future capability; not in the first MVP)
 
 - read text from a photo
 - understand a screenshot
@@ -58,13 +60,13 @@ Use web search when the user needs current information such as current prices, n
 
 Do not use web search when current information is unnecessary.
 
-## Inputs at launch
+## Inputs at first external launch
 
 Supported:
 - text
-- images
 
-Not initially supported:
+Deferred until after the first MVP:
+- images
 - audio
 - video
 - documents
@@ -108,7 +110,7 @@ Initial intent buckets:
 - rewrite
 - explain
 - ideas
-- vision
+- web
 - other
 
 Analytics should be used to discover the real distribution rather than assuming one segment is the winner.
@@ -121,8 +123,7 @@ Analytics should be used to discover the real distribution rather than assuming 
 - returning users
 - D1 / D7 / D30 retention
 - intent distribution
-- image usage
-- web usage
+- web-search usage
 - AI cost per active user
 - follow-up rate
 - error rate
@@ -134,11 +135,11 @@ A particularly useful quality signal is a follow-up instruction after an answer,
 
 Sofi is free to users.
 
-Planned safety limits for wider public rollout include:
+Required safety limits before the first external user rollout include:
 - per-user daily USD budget
-- daily message/image/web-search limits
+- daily text-request and web-search limits
 - per-request maximum cost
 - global daily/monthly budget
 - economy mode near the global budget ceiling
 
-These controls are not yet enforced by the current application. The first AI generation feature currently limits request input size, output tokens, and request timeout, but does not cap aggregate spend. Implement and verify budget enforcement before wider public rollout. Exact thresholds should be configurable and adjusted using real usage data.
+These controls are not yet enforced by the current application. The first AI generation feature currently limits request input size, output tokens, and request timeout, but does not cap aggregate spend. Implement and verify budget enforcement before enabling any external users. See the [MVP roadmap](roadmap.md) for the release gate. Exact thresholds should be configurable and adjusted using real usage data.
