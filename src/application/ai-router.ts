@@ -36,11 +36,7 @@ export interface AiProvider {
 }
 
 export type AiErrorKind =
-  | 'configuration'
-  | 'http'
-  | 'timeout'
-  | 'network'
-  | 'malformed_response';
+  'configuration' | 'http' | 'timeout' | 'network' | 'malformed_response';
 
 export type AiResponseIssue =
   | 'invalid_json'

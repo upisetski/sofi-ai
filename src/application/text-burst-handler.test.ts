@@ -54,6 +54,7 @@ describe('handleTextBurstComplete', () => {
         { status: 200, headers: { 'content-type': 'application/json' } },
       ),
     );
+    const logRecords: unknown[] = [];
     const aiRouter = createAiRouter(
       {
         models: { cheap_text: 'google/gemma-3-4b-it' },
@@ -61,7 +62,14 @@ describe('handleTextBurstComplete', () => {
         requestTimeoutMs: 30_000,
       },
       createOpenRouterClient({ apiKey: 'test-openrouter-key', fetchImpl }),
-      { info: vi.fn(), error: vi.fn() },
+      {
+        info(record) {
+          logRecords.push(record);
+        },
+        error(record) {
+          logRecords.push(record);
+        },
+      },
     );
 
     const result = await handleTextBurstComplete(aiRouter, {
@@ -89,9 +97,12 @@ describe('handleTextBurstComplete', () => {
       { role: 'assistant', content: 'Папярэдні адказ' },
       { role: 'user', content: 'Зрабі карацей.' },
     ]);
-    expect(JSON.stringify(fetchImpl.mock.calls)).not.toContain(
-      'test-openrouter-key',
-    );
+    const serializedLogs = JSON.stringify(logRecords);
+    expect(serializedLogs).not.toContain('test-openrouter-key');
+    expect(serializedLogs).not.toContain('Першае паведамленне');
+    expect(serializedLogs).not.toContain('Папярэдні адказ');
+    expect(serializedLogs).not.toContain('Зрабі карацей.');
+    expect(serializedLogs).not.toContain('AI-generated reply');
   });
 
   it('does not hide generation errors; the durable worker owns bounded retries and fallback replies', async () => {

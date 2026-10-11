@@ -44,7 +44,8 @@ export async function recordViberDeliveryCallback(
     );
 
     const persisted = stored.rows[0];
-    if (!persisted) throw new Error('Failed to persist Viber delivery callback');
+    if (!persisted)
+      throw new Error('Failed to persist Viber delivery callback');
 
     const update = await client.query(
       `UPDATE conversation_turns t

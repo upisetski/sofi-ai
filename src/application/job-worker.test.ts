@@ -64,7 +64,9 @@ async function makeJobReady(conversationId: string): Promise<void> {
   );
 }
 
-async function runGeneratedAndDelivered(worker: ConversationWorker): Promise<void> {
+async function runGeneratedAndDelivered(
+  worker: ConversationWorker,
+): Promise<void> {
   expect(await worker.runOnce()).toBe(true);
   expect(await worker.runOnce()).toBe(true);
 }
@@ -113,7 +115,9 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
     );
 
     const generateReply = vi.fn().mockResolvedValue('burst response');
-    const sendReply = vi.fn().mockResolvedValue({ messageToken: 'out-debounce' });
+    const sendReply = vi
+      .fn()
+      .mockResolvedValue({ messageToken: 'out-debounce' });
     const worker = new ConversationWorker(db!, { generateReply, sendReply });
 
     expect(await worker.runOnce()).toBe(false);
@@ -155,7 +159,10 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       }));
     const worker = new ConversationWorker(db!, { generateReply, sendReply });
 
-    const first = await acceptText('Write a note to my landlord.', 'token-turn-1');
+    const first = await acceptText(
+      'Write a note to my landlord.',
+      'token-turn-1',
+    );
     await makeJobReady(first.conversationId);
     await runGeneratedAndDelivered(worker);
 
@@ -229,7 +236,8 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
     await runGeneratedAndDelivered(worker);
 
     const targetFollowUp = inputs.find(
-      (input) => input.userId === 'reset-user' &&
+      (input) =>
+        input.userId === 'reset-user' &&
         input.messages[0] === 'What did I ask you before?',
     );
     expect(targetFollowUp?.history).toEqual([]);
@@ -241,23 +249,29 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       'SELECT content FROM messages WHERE conversation_id = $1',
       [firstUser.conversationId],
     );
-    expect(oldTargetContent.rows.some((row) =>
-      row.content.includes('Private original question.'),
-    )).toBe(false);
+    expect(
+      oldTargetContent.rows.some((row) =>
+        row.content.includes('Private original question.'),
+      ),
+    ).toBe(false);
     const otherUserContent = await db!.query<{ content: string }>(
       'SELECT content FROM messages WHERE conversation_id = $1',
       [otherUser.conversationId],
     );
-    expect(otherUserContent.rows.some((row) =>
-      row.content.includes('Do not leak this secret.'),
-    )).toBe(true);
+    expect(
+      otherUserContent.rows.some((row) =>
+        row.content.includes('Do not leak this secret.'),
+      ),
+    ).toBe(true);
   });
 
   it('persists generated content before delivery and retries delivery without regenerating it', async () => {
     const accepted = await acceptText('Ask once.', 'token-retry');
     await makeJobReady(accepted.conversationId);
 
-    const generateReply = vi.fn().mockResolvedValue('Persist this exact answer.');
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue('Persist this exact answer.');
     let attempts = 0;
     const sendReply = vi.fn(async (input: { turnId: string }) => {
       const persisted = await db!.query<{
@@ -307,9 +321,9 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
     await makeJobReady(accepted.conversationId);
 
     // A new worker instance simulates a process restart; delivery reuses the saved assistant row.
-    const restartedGenerate = vi.fn().mockRejectedValue(
-      new Error('must not regenerate a persisted response'),
-    );
+    const restartedGenerate = vi
+      .fn()
+      .mockRejectedValue(new Error('must not regenerate a persisted response'));
     const restartedWorker = new ConversationWorker(db!, {
       generateReply: restartedGenerate,
       sendReply,
@@ -340,10 +354,15 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
   });
 
   it('recovers a persisted pending reply after a worker crash without regenerating', async () => {
-    const accepted = await acceptText('Reply must survive restart.', 'token-crash');
+    const accepted = await acceptText(
+      'Reply must survive restart.',
+      'token-crash',
+    );
     await makeJobReady(accepted.conversationId);
     const generateReply = vi.fn().mockResolvedValue('Saved before restart.');
-    const sender = vi.fn().mockResolvedValue({ messageToken: 'out-after-restart' });
+    const sender = vi
+      .fn()
+      .mockResolvedValue({ messageToken: 'out-after-restart' });
     const generatingWorker = new ConversationWorker(db!, {
       generateReply,
       sendReply: sender,
@@ -360,9 +379,9 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       [accepted.conversationId],
     );
 
-    const recoveredGenerate = vi.fn().mockRejectedValue(
-      new Error('saved reply should be reused'),
-    );
+    const recoveredGenerate = vi
+      .fn()
+      .mockRejectedValue(new Error('saved reply should be reused'));
     const recoveredSender = vi.fn().mockResolvedValue({
       messageToken: 'out-after-restart',
     });
@@ -419,13 +438,19 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
   });
 
   it('retries transient generation failures at most three times', async () => {
-    const accepted = await acceptText('Please retry generation.', 'token-generation-retry');
+    const accepted = await acceptText(
+      'Please retry generation.',
+      'token-generation-retry',
+    );
     await makeJobReady(accepted.conversationId);
-    const generateReply = vi.fn()
+    const generateReply = vi
+      .fn()
       .mockRejectedValueOnce(new AiGenerationError('network'))
       .mockRejectedValueOnce(new AiGenerationError('http', 503))
       .mockResolvedValue('Generated after retries.');
-    const sendReply = vi.fn().mockResolvedValue({ messageToken: 'out-generation-retry' });
+    const sendReply = vi
+      .fn()
+      .mockResolvedValue({ messageToken: 'out-generation-retry' });
     const worker = new ConversationWorker(db!, {
       generateReply,
       sendReply,
@@ -512,7 +537,10 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
   });
 
   it('bounds transient delivery retries to five attempts', async () => {
-    const accepted = await acceptText('Bound retries.', 'token-bounded-retries');
+    const accepted = await acceptText(
+      'Bound retries.',
+      'token-bounded-retries',
+    );
     await makeJobReady(accepted.conversationId);
     const generateReply = vi.fn().mockResolvedValue('Same response each time.');
     const sendReply = vi.fn().mockRejectedValue(
@@ -559,7 +587,10 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
   });
 
   it('recovers a send interrupted after entering the sending state and records ambiguity', async () => {
-    const accepted = await acceptText('Was this sent?', 'token-interrupted-send');
+    const accepted = await acceptText(
+      'Was this sent?',
+      'token-interrupted-send',
+    );
     await makeJobReady(accepted.conversationId);
     const generateReply = vi.fn().mockResolvedValue('Persisted reply.');
     const firstWorker = new ConversationWorker(db!, {
@@ -587,9 +618,11 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
     });
     const recoveryWorker = new ConversationWorker(db!, {
       staleAfterMs: 1_000,
-      generateReply: vi.fn().mockRejectedValue(
-        new Error('must not regenerate the persisted reply'),
-      ),
+      generateReply: vi
+        .fn()
+        .mockRejectedValue(
+          new Error('must not regenerate the persisted reply'),
+        ),
       sendReply: recoveredSend,
       logger,
     });
@@ -630,11 +663,16 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
   });
 
   it('treats a Viber failed callback as uncertain terminal state until later delivery confirmation', async () => {
-    const accepted = await acceptText('Track provider callbacks.', 'token-callback-status');
+    const accepted = await acceptText(
+      'Track provider callbacks.',
+      'token-callback-status',
+    );
     await makeJobReady(accepted.conversationId);
     const worker = new ConversationWorker(db!, {
       generateReply: vi.fn().mockResolvedValue('Callback-tracked reply.'),
-      sendReply: vi.fn().mockResolvedValue({ messageToken: 'out-callback-status' }),
+      sendReply: vi
+        .fn()
+        .mockResolvedValue({ messageToken: 'out-callback-status' }),
     });
     await runGeneratedAndDelivered(worker);
 
@@ -677,7 +715,10 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
   });
 
   it('does not add a prior terminal generation fallback to subsequent AI context', async () => {
-    const accepted = await acceptText('The first request fails.', 'token-gen-failure');
+    const accepted = await acceptText(
+      'The first request fails.',
+      'token-gen-failure',
+    );
     await makeJobReady(accepted.conversationId);
     const inputs: TextBurstCompleteInput[] = [];
     const generateReply = vi.fn(async (input: TextBurstCompleteInput) => {
@@ -685,7 +726,9 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       if (inputs.length === 1) throw new AiGenerationError('configuration');
       return 'Next response.';
     });
-    const sendReply = vi.fn().mockResolvedValue({ messageToken: 'out-fallback' });
+    const sendReply = vi.fn(async ({ turnId }: { turnId: string }) => ({
+      messageToken: `out-fallback-${turnId}`,
+    }));
     const worker = new ConversationWorker(db!, { generateReply, sendReply });
 
     await runGeneratedAndDelivered(worker);
@@ -713,25 +756,30 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       [accepted.conversationId],
     );
     expect(fallback.rows).toEqual([
-      { content: 'I can’t prepare a response right now. Please try again shortly.' },
+      {
+        content:
+          'I can’t prepare a response right now. Please try again shortly.',
+      },
     ]);
   });
 
   it('deduplicates inbound events and serializes concurrent workers for one turn', async () => {
     const first = await acceptText('Generate exactly once.', 'token-duplicate');
-    const duplicate = await acceptText('Generate exactly once.', 'token-duplicate');
+    const duplicate = await acceptText(
+      'Generate exactly once.',
+      'token-duplicate',
+    );
     expect(duplicate.duplicate).toBe(true);
     await makeJobReady(first.conversationId);
 
     const generateReply = vi.fn().mockResolvedValue('One answer.');
-    const sendReply = vi.fn().mockResolvedValue({ messageToken: 'out-one-answer' });
+    const sendReply = vi
+      .fn()
+      .mockResolvedValue({ messageToken: 'out-one-answer' });
     const workerA = new ConversationWorker(db!, { generateReply, sendReply });
     const workerB = new ConversationWorker(db!, { generateReply, sendReply });
 
-    const results = await Promise.all([
-      workerA.runOnce(),
-      workerB.runOnce(),
-    ]);
+    const results = await Promise.all([workerA.runOnce(), workerB.runOnce()]);
     expect(results.filter(Boolean)).toHaveLength(1);
     expect(generateReply).toHaveBeenCalledTimes(1);
 

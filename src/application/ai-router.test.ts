@@ -100,7 +100,9 @@ describe('AI Router', () => {
       role: 'user',
       content: 'current request',
     });
-    expect(messages.reduce((total, item) => total + item.content.length, 0)).toBeLessThanOrEqual(40);
+    expect(
+      messages.reduce((total, item) => total + item.content.length, 0),
+    ).toBeLessThanOrEqual(40);
     expect(messages.some((item) => item.content === 'history-0')).toBe(false);
   });
 

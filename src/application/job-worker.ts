@@ -95,7 +95,10 @@ export class ConversationWorker {
   private running = false;
   private nextRetentionCleanupAt = 0;
 
-  constructor(private readonly db: Pool, options: WorkerOptions = {}) {
+  constructor(
+    private readonly db: Pool,
+    options: WorkerOptions = {},
+  ) {
     this.pollIntervalMs = options.pollIntervalMs ?? 250;
     this.staleAfterMs = options.staleAfterMs ?? 60_000;
     this.maxGenerationAttempts = options.maxGenerationAttempts ?? 3;
@@ -312,10 +315,9 @@ export class ConversationWorker {
       await client.query('ROLLBACK').catch(() => undefined);
       if (lockedConversationId) {
         await client
-          .query(
-            'SELECT pg_advisory_unlock(hashtextextended($1, 84621))',
-            [lockedConversationId],
-          )
+          .query('SELECT pg_advisory_unlock(hashtextextended($1, 84621))', [
+            lockedConversationId,
+          ])
           .catch(() => undefined);
       }
       throw error;
@@ -337,9 +339,7 @@ export class ConversationWorker {
     }
   }
 
-  private async recoverInterruptedTurns(
-    conversationId: string,
-  ): Promise<void> {
+  private async recoverInterruptedTurns(conversationId: string): Promise<void> {
     await this.db.query(
       `UPDATE conversation_turns
        SET generation_status = 'pending',
@@ -1025,7 +1025,5 @@ function isRetryableGenerationError(error: unknown): boolean {
 function isRetryableDeliveryError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return true;
   const candidate = error as { retryable?: unknown };
-  return typeof candidate.retryable === 'boolean'
-    ? candidate.retryable
-    : true;
+  return typeof candidate.retryable === 'boolean' ? candidate.retryable : true;
 }

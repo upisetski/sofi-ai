@@ -75,8 +75,7 @@ export function createViberClient(input: {
       }
 
       if (!response.ok) {
-        const retryable =
-          response.status === 429 || response.status >= 500;
+        const retryable = response.status === 429 || response.status >= 500;
         throw new ViberSendError(
           retryable ? 'http_retryable' : 'http_terminal',
           retryable,

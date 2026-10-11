@@ -101,4 +101,4 @@ Let users refer to earlier answers across separate text-message bursts without l
 - [x] Documentation updated where needed
 - [x] ADR added if a significant architectural decision was made
 - [ ] Full local checks pass
-- [ ] Focused PR opened
+- [x] Focused PR opened

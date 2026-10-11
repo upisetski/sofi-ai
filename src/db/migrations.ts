@@ -81,13 +81,32 @@ ALTER TABLE conversations
 ALTER TABLE messages
   ALTER COLUMN event_id DROP NOT NULL;
 
--- Expired message content must not cascade-delete deduplication metadata.
-ALTER TABLE messages
-  DROP CONSTRAINT IF EXISTS messages_event_id_fkey;
+-- Keep inbound-event deduplication metadata when message content expires.
+DO $migration$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'messages'::regclass
+      AND conname = 'messages_event_id_fkey'
+      AND confdeltype <> 'n'
+  ) THEN
+    ALTER TABLE messages DROP CONSTRAINT messages_event_id_fkey;
+  END IF;
 
-ALTER TABLE messages
-  ADD CONSTRAINT messages_event_id_fkey
-  FOREIGN KEY (event_id) REFERENCES conversation_events(id) ON DELETE SET NULL;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'messages'::regclass
+      AND conname = 'messages_event_id_fkey'
+      AND confdeltype = 'n'
+  ) THEN
+    ALTER TABLE messages
+      ADD CONSTRAINT messages_event_id_fkey
+      FOREIGN KEY (event_id) REFERENCES conversation_events(id) ON DELETE SET NULL;
+  END IF;
+END;
+$migration$;
 
 ALTER TABLE messages
   ADD COLUMN IF NOT EXISTS context_version INTEGER NOT NULL DEFAULT 0;

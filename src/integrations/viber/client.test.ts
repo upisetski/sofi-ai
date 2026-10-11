@@ -37,9 +37,9 @@ describe('Viber client', () => {
   it('classifies transient HTTP and Viber rate-limit errors as retryable', async () => {
     const httpClient = createViberClient({
       authToken: 'token',
-      fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(
-        new Response('', { status: 503 }),
-      ),
+      fetchImpl: vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response('', { status: 503 })),
     });
 
     await expect(
@@ -79,12 +79,14 @@ describe('Viber client', () => {
   it('marks permanent API rejections terminal without exposing raw response text', async () => {
     const client = createViberClient({
       authToken: 'token',
-      fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(
-        new Response(
-          '{"status":2,"status_message":"bad credentials and private input"}',
-          { status: 200 },
+      fetchImpl: vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          new Response(
+            '{"status":2,"status_message":"bad credentials and private input"}',
+            { status: 200 },
+          ),
         ),
-      ),
     });
 
     let thrown: unknown;
@@ -109,9 +111,9 @@ describe('Viber client', () => {
   it('treats network failures as ambiguous and retryable without logging content', async () => {
     const client = createViberClient({
       authToken: 'token',
-      fetchImpl: vi.fn<typeof fetch>().mockRejectedValue(
-        new Error('network error included private input'),
-      ),
+      fetchImpl: vi
+        .fn<typeof fetch>()
+        .mockRejectedValue(new Error('network error included private input')),
     });
 
     await expect(
