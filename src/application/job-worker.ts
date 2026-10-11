@@ -908,10 +908,7 @@ export class ConversationWorker {
           : hasPendingEvents
             ? now
             : undefined;
-      const turnAt =
-        activeTurnAt === undefined
-          ? undefined
-          : Math.max(activeTurnAt.getTime(), now);
+      const turnAt = activeTurnAt?.getTime();
       const nextWakeAt =
         inboundAt === undefined
           ? turnAt
