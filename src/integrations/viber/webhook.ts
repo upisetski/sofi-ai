@@ -7,6 +7,7 @@ import {
   acceptViberCallback,
   type AcceptedEvent,
 } from '../../application/viber-event-persistence.js';
+import { recordViberDeliveryCallback } from '../../application/viber-delivery-callback.js';
 import type { Db } from '../../db/client.js';
 import { createViberClient } from './client.js';
 import { viberCallbackSchema } from './schemas.js';
@@ -107,17 +108,52 @@ export function createViberWebhookHandler(
       return;
     }
 
-    if (
-      result.data.event === 'webhook' ||
-      result.data.event === 'delivered' ||
-      result.data.event === 'seen' ||
-      result.data.event === 'failed'
-    ) {
+    if (result.data.event === 'webhook') {
       request.log.debug(
         { event: result.data.event },
         'Ignoring Viber callback outside MVP event processing',
       );
       await reply.code(200).send();
+      return;
+    }
+
+    if (
+      result.data.event === 'delivered' ||
+      result.data.event === 'seen' ||
+      result.data.event === 'failed'
+    ) {
+      if (!options.db) {
+        request.log.error('Viber webhook database is not configured');
+        await reply.code(500).send();
+        return;
+      }
+
+      try {
+        const callback = await recordViberDeliveryCallback(options.db, {
+          event: result.data.event,
+          timestamp: result.data.timestamp,
+          message_token: result.data.message_token,
+          user_id: result.data.user_id,
+        });
+        request.log.debug(
+          {
+            event: result.data.event,
+            messageToken: result.data.message_token,
+            matched: callback.matched,
+          },
+          'Viber delivery callback recorded',
+        );
+        await reply.code(200).send();
+      } catch (error) {
+        request.log.error(
+          {
+            event: result.data.event,
+            category: error instanceof Error ? error.name : 'unknown',
+          },
+          'Failed to persist Viber delivery callback',
+        );
+        await reply.code(500).send();
+      }
       return;
     }
 

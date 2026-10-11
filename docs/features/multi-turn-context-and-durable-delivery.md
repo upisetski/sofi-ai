@@ -66,7 +66,7 @@ Let users refer to earlier answers across separate text-message bursts without l
 ## Data and privacy
 
 - Persistent content: accepted user text, generated assistant text, and inbound event payloads needed before processing.
-- After 30 days, delete expired message text and redact processed message payloads. Keep provider event identifiers and non-content metadata for 90 days; keep unfinished turn content until its lifecycle is terminal.
+- After 30 days, delete expired message text and redact all processed inbound event payloads. Keep provider event identifiers and non-content metadata for 90 days; keep unfinished turn content until its lifecycle is terminal.
 - Reset removes prior-context message content and redacts processed inbound payloads for that context. It does not delete webhook event identifiers needed for deduplication or interrupt an already-generated pending reply.
 - Never log content, prompts, completions, auth tokens, or raw exceptions that could contain them. Store only safe error categories and numeric status when available.
 
@@ -96,9 +96,9 @@ Let users refer to earlier answers across separate text-message bursts without l
 
 ## Implementation checklist
 
-- [ ] Implementation complete
-- [ ] Tests added or updated
-- [ ] Documentation updated where needed
-- [ ] ADR added if a significant architectural decision was made
+- [x] Implementation complete
+- [x] Tests added or updated
+- [x] Documentation updated where needed
+- [x] ADR added if a significant architectural decision was made
 - [ ] Full local checks pass
 - [ ] Focused PR opened

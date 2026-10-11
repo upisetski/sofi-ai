@@ -32,7 +32,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   if (!db) return;
   await db.query(
-    'TRUNCATE jobs, messages, conversation_events, conversations, users RESTART IDENTITY CASCADE',
+    'TRUNCATE jobs, viber_delivery_callbacks, conversation_turns, messages, conversation_events, conversations, users RESTART IDENTITY CASCADE',
   );
 });
 

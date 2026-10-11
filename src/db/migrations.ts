@@ -73,6 +73,76 @@ CREATE TABLE IF NOT EXISTS jobs (
 
 CREATE INDEX IF NOT EXISTS jobs_ready_idx
   ON jobs (status, available_at);
+
+-- Forward-only WP1 migration. Existing inbound rows and provider event IDs remain intact.
+ALTER TABLE conversations
+  ADD COLUMN IF NOT EXISTS context_version INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE messages
+  ALTER COLUMN event_id DROP NOT NULL;
+
+ALTER TABLE messages
+  ADD COLUMN IF NOT EXISTS context_version INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS conversation_turns (
+  id BIGSERIAL PRIMARY KEY,
+  conversation_id BIGINT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  turn_kind TEXT NOT NULL DEFAULT 'chat'
+    CHECK (turn_kind IN ('chat', 'reset')),
+  start_position BIGINT NOT NULL,
+  end_position BIGINT NOT NULL,
+  context_version INTEGER NOT NULL DEFAULT 0,
+  generation_status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (generation_status IN ('pending', 'generating', 'generated', 'retryable_failure', 'failed')),
+  delivery_status TEXT NOT NULL DEFAULT 'not_ready'
+    CHECK (delivery_status IN ('not_ready', 'pending', 'sending', 'retryable_failure', 'accepted', 'delivered', 'terminal_failure')),
+  generation_attempts INTEGER NOT NULL DEFAULT 0,
+  delivery_attempts INTEGER NOT NULL DEFAULT 0,
+  available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  failure_stage TEXT CHECK (failure_stage IN ('generation', 'delivery')),
+  last_error_category TEXT,
+  assistant_message_id BIGINT REFERENCES messages(id) ON DELETE SET NULL,
+  viber_message_token TEXT,
+  generated_at TIMESTAMPTZ,
+  accepted_at TIMESTAMPTZ,
+  delivered_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (conversation_id, start_position, end_position, turn_kind)
+);
+
+ALTER TABLE messages
+  ADD COLUMN IF NOT EXISTS turn_id BIGINT
+  REFERENCES conversation_turns(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS messages_conversation_context_order_idx
+  ON messages (conversation_id, context_version, id);
+
+CREATE INDEX IF NOT EXISTS messages_turn_idx
+  ON messages (turn_id, id);
+
+CREATE INDEX IF NOT EXISTS conversation_turns_active_idx
+  ON conversation_turns (conversation_id, id)
+  WHERE delivery_status IN ('not_ready', 'pending', 'sending', 'retryable_failure');
+
+CREATE UNIQUE INDEX IF NOT EXISTS conversation_turns_assistant_message_idx
+  ON conversation_turns (assistant_message_id)
+  WHERE assistant_message_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS conversation_turns_viber_token_idx
+  ON conversation_turns (viber_message_token)
+  WHERE viber_message_token IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS viber_delivery_callbacks (
+  message_token TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  event_type TEXT NOT NULL CHECK (event_type IN ('delivered', 'seen', 'failed')),
+  occurred_at TIMESTAMPTZ NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS viber_delivery_callbacks_retention_idx
+  ON viber_delivery_callbacks (received_at);
 `;
 
 export async function migrate(db: Pool): Promise<void> {

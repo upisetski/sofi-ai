@@ -63,6 +63,47 @@ describe('AI Router', () => {
     ]);
   });
 
+  it('inserts recent user and assistant context in chronological order before the current burst', () => {
+    const messages = buildAiMessages(
+      ['Make it shorter.'],
+      'en',
+      MAX_AI_INPUT_CHARS,
+      [
+        { role: 'user', content: 'Write a note.' },
+        { role: 'assistant', content: 'Here is a long note.' },
+        { role: 'user', content: 'Mention Friday.' },
+      ],
+    );
+
+    expect(messages.slice(1)).toEqual([
+      { role: 'user', content: 'Write a note.' },
+      { role: 'assistant', content: 'Here is a long note.' },
+      { role: 'user', content: 'Mention Friday.' },
+      { role: 'user', content: 'Make it shorter.' },
+    ]);
+  });
+
+  it('bounds history to twelve recent messages and gives the current burst priority', () => {
+    const history = Array.from({ length: 15 }, (_, index) => ({
+      role: (index % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: `history-${index}`,
+    }));
+    const messages = buildAiMessages(
+      ['current request'],
+      'en',
+      40,
+      history,
+    ).slice(1);
+
+    expect(messages.length).toBeLessThanOrEqual(13);
+    expect(messages.at(-1)).toEqual({
+      role: 'user',
+      content: 'current request',
+    });
+    expect(messages.reduce((total, item) => total + item.content.length, 0)).toBeLessThanOrEqual(40);
+    expect(messages.some((item) => item.content === 'history-0')).toBe(false);
+  });
+
   it('bounds the total input size while retaining the beginning of the burst in order', () => {
     const messages = buildAiMessages(
       ['a'.repeat(MAX_AI_INPUT_CHARS), 'later message'],
