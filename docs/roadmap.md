@@ -48,7 +48,7 @@ Already implemented on the current main branch:
 - Automated tests for routing, mocked OpenRouter responses, debounce, and core integration behavior.
 - Railway-oriented deployment, database migrations/readiness checks, Docker build, and CI.
 
-The current pipeline is text-only and does not yet retain assistant replies as multi-turn history. Budget enforcement, web search, tested AI fallback, durable outbound delivery recovery, and complete product analytics/alerting are not implemented merely because they appear in architecture documentation.
+WP1 now adds persisted assistant history, bounded multi-turn context, a localized reset, and durable turn/reply delivery recovery; see the [feature specification](features/multi-turn-context-and-durable-delivery.md). The implementation and PostgreSQL integration tests cover cross-burst context, isolation, retries, duplicate events, and worker recovery. Budget enforcement and usage accounting (WP2), web search (WP3), and complete product analytics/alerting remain outstanding. Viber delivery cannot be guaranteed exactly once when a send outcome is ambiguous.
 
 ## Prioritized work before the first external users
 
