@@ -752,7 +752,9 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       `SELECT m.content
        FROM messages m
        JOIN conversation_turns t ON t.id = m.turn_id
-       WHERE t.conversation_id = $1 AND t.generation_status = 'failed'`,
+       WHERE t.conversation_id = $1
+         AND t.generation_status = 'failed'
+         AND m.role = 'assistant'`,
       [accepted.conversationId],
     );
     expect(fallback.rows).toEqual([
