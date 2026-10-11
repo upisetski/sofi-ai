@@ -101,13 +101,17 @@ export function createViberClient(input: {
         message_token?: unknown;
       };
 
+      if (typeof result.status !== 'number') {
+        throw new ViberSendError('invalid_response', true);
+      }
+
       if (result.status !== 0) {
         const retryable = result.status === 12;
         throw new ViberSendError(
           retryable ? 'rate_limited' : 'api_rejected',
           retryable,
           undefined,
-          typeof result.status === 'number' ? result.status : undefined,
+          result.status,
         );
       }
 

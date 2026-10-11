@@ -81,6 +81,14 @@ ALTER TABLE conversations
 ALTER TABLE messages
   ALTER COLUMN event_id DROP NOT NULL;
 
+-- Expired message content must not cascade-delete deduplication metadata.
+ALTER TABLE messages
+  DROP CONSTRAINT IF EXISTS messages_event_id_fkey;
+
+ALTER TABLE messages
+  ADD CONSTRAINT messages_event_id_fkey
+  FOREIGN KEY (event_id) REFERENCES conversation_events(id) ON DELETE SET NULL;
+
 ALTER TABLE messages
   ADD COLUMN IF NOT EXISTS context_version INTEGER NOT NULL DEFAULT 0;
 
