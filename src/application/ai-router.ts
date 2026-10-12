@@ -344,12 +344,12 @@ export function createAiRouter(
       const reservation =
         usageAccounting && input.usageContext
           ? await usageAccounting.reserve({
-            ...input.usageContext,
-            route: input.route,
-            model,
-            messages: chatMessages,
-            maxOutputTokens: config.maxOutputTokens,
-          })
+              ...input.usageContext,
+              route: input.route,
+              model,
+              messages: chatMessages,
+              maxOutputTokens: config.maxOutputTokens,
+            })
           : undefined;
 
       try {
