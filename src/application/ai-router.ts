@@ -25,6 +25,7 @@ export interface AiUsage {
 
 export interface AiGenerationResult {
   text: string;
+  providerGenerationId?: string;
   usage?: AiUsage;
 }
 
@@ -369,6 +370,7 @@ export function createAiRouter(
             input.usageContext,
             result.usage,
             Date.now() - startedAt,
+            result.providerGenerationId,
           );
         }
 
