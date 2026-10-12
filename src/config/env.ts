@@ -40,7 +40,10 @@ export const envSchema = z
       .default(0.1),
     AI_USER_DAILY_REQUEST_LIMIT: z.coerce.number().int().positive().default(50),
     AI_USER_DAILY_BUDGET_USD: z.coerce.number().positive().default(0.1),
-    AI_REQUEST_MAX_ESTIMATED_COST_USD: z.coerce.number().positive().default(0.01),
+    AI_REQUEST_MAX_ESTIMATED_COST_USD: z.coerce
+      .number()
+      .positive()
+      .default(0.01),
     AI_GLOBAL_DAILY_BUDGET_USD: z.coerce.number().positive().default(2),
     AI_GLOBAL_MONTHLY_BUDGET_USD: z.coerce.number().positive().default(30),
     AI_ECONOMY_THRESHOLD_PERCENT: z.coerce
