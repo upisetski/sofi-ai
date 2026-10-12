@@ -401,7 +401,9 @@ export function createAiRouter(
             (error.kind === 'http' &&
               typeof error.httpStatus === 'number' &&
               error.httpStatus >= 400 &&
-              error.httpStatus < 500);
+              error.httpStatus < 500 &&
+              error.httpStatus !== 408 &&
+              error.httpStatus !== 425);
           const category = error.kind === 'http' && error.httpStatus
             ? `http_${error.httpStatus}`
             : error.kind;
