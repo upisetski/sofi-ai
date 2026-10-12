@@ -1300,6 +1300,9 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       );
 
       await accounting.reserve(reservationInput(next));
+      await expect(accounting.markInFlight(expiredReserved)).rejects.toThrow(
+        'usage_reservation_transition_failed',
+      );
       const rows = await db!.query<{
         turn_id: string;
         reservation_state: string;
