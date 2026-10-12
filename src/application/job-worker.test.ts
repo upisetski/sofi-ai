@@ -1036,6 +1036,72 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       });
     });
 
+    it('enforces per-user daily spending independently of the global budget', async () => {
+      const context = await createUsageTurn('user-daily-budget');
+      const accounting = new UsageAccountingService(
+        db!,
+        budgetConfig({ userDailyBudgetUsd: 0.00001 }),
+      );
+
+      await expect(
+        accounting.reserve(reservationInput(context, 100)),
+      ).rejects.toMatchObject({ reason: 'user_daily_budget' });
+      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject({
+        rowCount: 0,
+      });
+    });
+
+    it('enforces the global monthly ceiling', async () => {
+      const context = await createUsageTurn('global-monthly-budget');
+      const accounting = new UsageAccountingService(
+        db!,
+        budgetConfig({
+          globalDailyBudgetUsd: 2,
+          globalMonthlyBudgetUsd: 0.00001,
+        }),
+      );
+
+      await expect(
+        accounting.reserve(reservationInput(context, 100)),
+      ).rejects.toMatchObject({ reason: 'global_monthly_budget' });
+      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject({
+        rowCount: 0,
+      });
+    });
+
+    it('returns a localized message when the worker is blocked by a budget guard', async () => {
+      const accepted = await acceptText(
+        'Please answer later.',
+        'token-budget-locale',
+        'budget-locale-user',
+        'en',
+      );
+      await makeJobReady(accepted.conversationId);
+      const sent: string[] = [];
+      const worker = new ConversationWorker(db!, {
+        generateReply: vi.fn().mockRejectedValue(
+          new UsageBudgetError('user_daily_budget'),
+        ),
+        sendReply: vi.fn(async ({ text }: { text: string }) => {
+          sent.push(text);
+          return { messageToken: 'out-budget-locale' };
+        }),
+      });
+
+      await runGeneratedAndDelivered(worker);
+
+      expect(sent).toEqual([
+        'I can’t process a new request right now. Please try again a little later.',
+      ]);
+      const turn = await db!.query<{ generation_status: string; delivery_status: string }>(
+        'SELECT generation_status, delivery_status FROM conversation_turns WHERE conversation_id = $1',
+        [accepted.conversationId],
+      );
+      expect(turn.rows).toEqual([
+        { generation_status: 'failed', delivery_status: 'accepted' },
+      ]);
+    });
+
     it('releases an expired pre-call reservation but preserves expired in-flight ambiguity', async () => {
       const expiredReserved = await createUsageTurn('expiry-reserved');
       const expiredInflight = await createUsageTurn('expiry-inflight');
