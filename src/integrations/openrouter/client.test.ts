@@ -9,6 +9,7 @@ import { createOpenRouterClient } from './client.js';
 function successResponse() {
   return new Response(
     JSON.stringify({
+      id: 'gen-openrouter-test-123',
       choices: [{ message: { role: 'assistant', content: 'Hello from Sofi' } }],
       usage: {
         prompt_tokens: 18,
@@ -44,6 +45,7 @@ describe('OpenRouter client', () => {
 
     await expect(client.generate(request)).resolves.toEqual({
       text: 'Hello from Sofi',
+      providerGenerationId: 'gen-openrouter-test-123',
       usage: {
         promptTokens: 18,
         completionTokens: 7,
