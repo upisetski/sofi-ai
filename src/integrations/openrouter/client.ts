@@ -239,8 +239,11 @@ function parseCompletion(
     if (costUsd !== undefined) usage.costUsd = costUsd;
   }
 
+  const providerGenerationId = safeProviderIdentifier(payload.id, 128);
+
   return {
     text: content.trim(),
+    ...(providerGenerationId ? { providerGenerationId } : {}),
     ...(Object.keys(usage).length > 0 ? { usage } : {}),
   };
 }
