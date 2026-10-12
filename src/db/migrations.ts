@@ -172,6 +172,49 @@ CREATE INDEX IF NOT EXISTS viber_delivery_callbacks_retention_idx
   ON viber_delivery_callbacks (received_at);
 `;
 
+const usageMigration = `
+CREATE TABLE IF NOT EXISTS usage_budget_mutex (
+  id INTEGER PRIMARY KEY CHECK (id = 1)
+);
+INSERT INTO usage_budget_mutex (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS ai_usage_attempts (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  conversation_id BIGINT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  turn_id BIGINT NOT NULL REFERENCES conversation_turns(id) ON DELETE CASCADE,
+  attempt_number INTEGER NOT NULL CHECK (attempt_number > 0),
+  route TEXT NOT NULL,
+  model TEXT NOT NULL,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  duration_ms BIGINT CHECK (duration_ms IS NULL OR duration_ms >= 0),
+  outcome TEXT NOT NULL CHECK (outcome IN ('in_flight', 'success', 'failure')),
+  failure_category TEXT,
+  prompt_estimated_tokens BIGINT CHECK (prompt_estimated_tokens IS NULL OR prompt_estimated_tokens >= 0),
+  prompt_tokens BIGINT CHECK (prompt_tokens IS NULL OR prompt_tokens >= 0),
+  completion_tokens BIGINT CHECK (completion_tokens IS NULL OR completion_tokens >= 0),
+  total_tokens BIGINT CHECK (total_tokens IS NULL OR total_tokens >= 0),
+  provider_generation_id TEXT,
+  provider_cost_usd NUMERIC(20, 12) CHECK (provider_cost_usd IS NULL OR provider_cost_usd >= 0),
+  estimated_cost_usd NUMERIC(20, 12) CHECK (estimated_cost_usd IS NULL OR estimated_cost_usd >= 0),
+  cost_kind TEXT NOT NULL CHECK (cost_kind IN ('actual', 'estimated', 'unknown')),
+  cost_provenance TEXT NOT NULL,
+  reserved_usd NUMERIC(20, 12) NOT NULL DEFAULT 0 CHECK (reserved_usd >= 0),
+  reservation_state TEXT NOT NULL CHECK (reservation_state IN ('reserved', 'in_flight', 'settled', 'released', 'uncertain')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (turn_id, attempt_number)
+);
+
+CREATE INDEX IF NOT EXISTS ai_usage_attempts_user_started_idx
+  ON ai_usage_attempts (user_id, started_at);
+CREATE INDEX IF NOT EXISTS ai_usage_attempts_started_idx
+  ON ai_usage_attempts (started_at);
+CREATE INDEX IF NOT EXISTS ai_usage_attempts_turn_idx
+  ON ai_usage_attempts (turn_id, attempt_number);
+`;
+
 export async function migrate(db: Pool): Promise<void> {
   await db.query(migration);
+  await db.query(usageMigration);
 }
