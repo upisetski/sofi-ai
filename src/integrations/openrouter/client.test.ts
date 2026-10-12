@@ -63,7 +63,6 @@ describe('OpenRouter client', () => {
       model: 'google/gemma-3-4b-it',
       messages: request.messages,
       max_tokens: 512,
-      usage: { include: true },
     });
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
