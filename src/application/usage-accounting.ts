@@ -379,6 +379,7 @@ export class UsageAccountingService {
     context: UsageAttemptContext,
     usage: AiUsage | undefined,
     durationMs: number,
+    providerGenerationId?: string,
   ): Promise<void> {
     const actualCost = usage?.costUsd;
     const hasTokens =
@@ -463,6 +464,22 @@ export class UsageAccountingService {
             usage?.completionTokens ?? null,
             usage?.totalTokens ?? null,
           ],
+        );
+      }
+
+      const safeGenerationId =
+        providerGenerationId !== undefined &&
+        providerGenerationId.length <= 128 &&
+        /^[a-zA-Z0-9_.:/-]+$/.test(providerGenerationId)
+          ? providerGenerationId
+          : undefined;
+      if (safeGenerationId) {
+        await client.query(
+          `UPDATE ai_usage_attempts
+           SET provider_generation_id = COALESCE(provider_generation_id, $3)
+           WHERE turn_id = $1 AND attempt_number = $2
+             AND reservation_state IN ('settled', 'uncertain')`,
+          [context.turnId, context.attemptNumber, safeGenerationId],
         );
       }
     });
