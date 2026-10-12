@@ -12,6 +12,7 @@ export async function handleTextBurstComplete(
     messages: input.messages,
     history: input.history,
     ...(input.language !== undefined ? { language: input.language } : {}),
+    ...(input.usageContext ? { usageContext: input.usageContext } : {}),
   });
 
   return result.text;
