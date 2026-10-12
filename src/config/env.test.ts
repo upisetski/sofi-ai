@@ -71,6 +71,7 @@ describe('environment configuration', () => {
     expect(config.AI_REQUEST_MAX_ESTIMATED_COST_USD).toBe(0.01);
     expect(config.AI_GLOBAL_DAILY_BUDGET_USD).toBe(2);
     expect(config.AI_GLOBAL_MONTHLY_BUDGET_USD).toBe(30);
+    expect(config.AI_ECONOMY_MAX_OUTPUT_TOKENS).toBe(256);
   });
 
   it('rejects invalid budget and price configuration', () => {
@@ -82,6 +83,9 @@ describe('environment configuration', () => {
     ).toThrow();
     expect(() =>
       parseEnv({ ...baseEnv, AI_ECONOMY_THRESHOLD_PERCENT: '100' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_ECONOMY_MAX_OUTPUT_TOKENS: '0' }),
     ).toThrow();
   });
 
