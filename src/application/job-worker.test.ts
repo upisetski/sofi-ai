@@ -1070,7 +1070,11 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
         [firstAttempt.turnId],
       );
       expect(rows.rows).toEqual([
-        { attempt_number: 1, reservation_state: 'uncertain', outcome: 'failure' },
+        {
+          attempt_number: 1,
+          reservation_state: 'uncertain',
+          outcome: 'failure',
+        },
         { attempt_number: 2, reservation_state: 'settled', outcome: 'success' },
       ]);
     });
@@ -1103,13 +1107,20 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
     it('recovers a durable reservation through a new accounting service instance', async () => {
       const context = await createUsageTurn('service-restart');
       const beforeRestart = new UsageAccountingService(db!, budgetConfig());
-      const reservation = await beforeRestart.reserve(reservationInput(context));
+      const reservation = await beforeRestart.reserve(
+        reservationInput(context),
+      );
 
       const afterRestart = new UsageAccountingService(db!, budgetConfig());
       await afterRestart.markInFlight(context);
       await afterRestart.reconcileSuccess(
         context,
-        { promptTokens: 21, completionTokens: 9, totalTokens: 30, costUsd: 0.000003 },
+        {
+          promptTokens: 21,
+          completionTokens: 9,
+          totalTokens: 30,
+          costUsd: 0.000003,
+        },
         24,
       );
 
@@ -1264,9 +1275,11 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       await expect(
         accounting.reserve(reservationInput(context, 100)),
       ).rejects.toMatchObject({ reason: 'user_daily_budget' });
-      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject({
-        rowCount: 0,
-      });
+      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject(
+        {
+          rowCount: 0,
+        },
+      );
     });
 
     it('enforces the global monthly ceiling', async () => {
@@ -1282,9 +1295,11 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       await expect(
         accounting.reserve(reservationInput(context, 100)),
       ).rejects.toMatchObject({ reason: 'global_monthly_budget' });
-      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject({
-        rowCount: 0,
-      });
+      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject(
+        {
+          rowCount: 0,
+        },
+      );
     });
 
     it('returns a localized message when the worker is blocked by a budget guard', async () => {
