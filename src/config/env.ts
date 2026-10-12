@@ -52,6 +52,12 @@ export const envSchema = z
       .min(1)
       .max(99)
       .default(80),
+    AI_ECONOMY_MAX_OUTPUT_TOKENS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(8192)
+      .default(256),
     SENTRY_DSN: z.string().optional(),
     LOG_LEVEL: z.string().default('info'),
   })
