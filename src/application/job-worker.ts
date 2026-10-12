@@ -676,7 +676,8 @@ export class ConversationWorker {
         [
           turn.conversation_id,
           turn.id,
-          replyText ?? getAiTemporaryErrorResponse(turn.locale ?? undefined).text,
+          replyText ??
+            getAiTemporaryErrorResponse(turn.locale ?? undefined).text,
           Number(turn.end_position),
           turn.context_version,
         ],
