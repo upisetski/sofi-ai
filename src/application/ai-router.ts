@@ -341,15 +341,16 @@ export function createAiRouter(
         throw new AiGenerationError('configuration');
       }
 
-      const reservation = usageAccounting && input.usageContext
-        ? await usageAccounting.reserve({
+      const reservation =
+        usageAccounting && input.usageContext
+          ? await usageAccounting.reserve({
             ...input.usageContext,
             route: input.route,
             model,
             messages: chatMessages,
             maxOutputTokens: config.maxOutputTokens,
           })
-        : undefined;
+          : undefined;
 
       try {
         if (usageAccounting && input.usageContext) {
@@ -358,7 +359,8 @@ export function createAiRouter(
         const result = await provider.generate({
           model,
           messages: chatMessages,
-          maxOutputTokens: reservation?.maxOutputTokens ?? config.maxOutputTokens,
+          maxOutputTokens:
+            reservation?.maxOutputTokens ?? config.maxOutputTokens,
           timeoutMs: config.requestTimeoutMs,
         });
 
@@ -408,9 +410,10 @@ export function createAiRouter(
               error.httpStatus < 500 &&
               error.httpStatus !== 408 &&
               error.httpStatus !== 425);
-          const category = error.kind === 'http' && error.httpStatus
-            ? `http_${error.httpStatus}`
-            : error.kind;
+          const category =
+            error.kind === 'http' && error.httpStatus
+              ? `http_${error.httpStatus}`
+              : error.kind;
           if (knownPreProviderFailure) {
             await usageAccounting.markKnownFailure(
               input.usageContext,
