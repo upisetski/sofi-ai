@@ -243,12 +243,21 @@ describe('AI Router', () => {
     expect(JSON.stringify(records)).not.toContain('private prompt text');
   });
 
-  it('never calls the provider when the shared budget guard rejects an attempt', async () => {
+  it(
+    'never calls the provider when the shared budget guard rejects an attempt',
+    async () => {
     const generate = vi.fn();
     const accounting = {
-      reserve: vi.fn().mockRejectedValue(new UsageBudgetError('global_daily_budget')),
+      reserve: vi
+        .fn()
+        .mockRejectedValue(new UsageBudgetError('global_daily_budget')),
     } as unknown as UsageAccountingService;
-    const router = createAiRouter(config, { generate }, { info: vi.fn(), error: vi.fn() }, accounting);
+    const router = createAiRouter(
+      config,
+      { generate },
+      { info: vi.fn(), error: vi.fn() },
+      accounting,
+    );
 
     await expect(
       router.generate({
@@ -265,7 +274,8 @@ describe('AI Router', () => {
 
     expect(accounting.reserve).toHaveBeenCalledTimes(1);
     expect(generate).not.toHaveBeenCalled();
-  });
+    },
+  );
 
   it('reports a missing route model as a configuration error', async () => {
     const logger = { info: vi.fn(), error: vi.fn() };
