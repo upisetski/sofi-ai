@@ -924,8 +924,11 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
         provider_cost_usd: '0.000004000000',
       });
       expect(Number(settled.rows[0]?.reserved_usd)).toBe(0);
-      expect(await db!.query('SELECT id FROM ai_usage_attempts WHERE turn_id = $1', [context.turnId]))
-        .toMatchObject({ rowCount: 1 });
+      expect(
+        await db!.query('SELECT id FROM ai_usage_attempts WHERE turn_id = $1', [
+          context.turnId,
+        ]),
+      ).toMatchObject({ rowCount: 1 });
     });
 
     it('records an estimated cost when tokens exist but provider cost is missing', async () => {
@@ -998,7 +1001,9 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
         reservation_state: 'uncertain',
         cost_kind: 'unknown',
       });
-      expect(Number(row.rows[0]?.reserved_usd)).toBeCloseTo(reservation.reservedUsd);
+      expect(Number(row.rows[0]?.reserved_usd)).toBeCloseTo(
+        reservation.reservedUsd,
+      );
     });
 
     it('fails closed when model pricing is not configured', async () => {
@@ -1027,13 +1032,19 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
          VALUES ($1, 2, 2) RETURNING id`,
         [first.conversationId],
       );
-      const second = { ...first, turnId: secondTurn.rows[0]!.id, attemptNumber: 1 };
+      const second = {
+        ...first,
+        turnId: secondTurn.rows[0]!.id,
+        attemptNumber: 1,
+      };
       const accounting = new UsageAccountingService(
         db!,
         budgetConfig({ userDailyRequestLimit: 1 }),
       );
       await accounting.reserve(reservationInput(first));
-      await expect(accounting.reserve(reservationInput(second))).rejects.toMatchObject({
+      await expect(
+        accounting.reserve(reservationInput(second)),
+      ).rejects.toMatchObject({
         reason: 'request_rate_limit',
       });
       const rows = await db!.query<{ count: number }>(
@@ -1058,14 +1069,18 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
         accounting.reserve(reservationInput(first, 100)),
         accounting.reserve(reservationInput(second, 100)),
       ]);
-      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      expect(
+        results.filter((result) => result.status === 'fulfilled'),
+      ).toHaveLength(1);
       const rejected = results.find((result) => result.status === 'rejected');
       expect(rejected?.status).toBe('rejected');
       if (!rejected || rejected.status !== 'rejected') {
         throw new Error('Expected one concurrent reservation to be rejected');
       }
       expect(rejected.reason).toBeInstanceOf(UsageBudgetError);
-      expect((rejected.reason as UsageBudgetError).reason).toBe('global_daily_budget');
+      expect((rejected.reason as UsageBudgetError).reason).toBe(
+        'global_daily_budget',
+      );
       const rows = await db!.query<{ count: number }>(
         'SELECT COUNT(*)::int AS count FROM ai_usage_attempts',
       );
@@ -1081,9 +1096,11 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       await expect(
         accounting.reserve(reservationInput(context, 512)),
       ).rejects.toMatchObject({ reason: 'request_cost_limit' });
-      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject({
-        rowCount: 0,
-      });
+      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject(
+        {
+          rowCount: 0,
+        },
+      );
     });
 
     it('enforces per-user daily spending independently of the global budget', async () => {
@@ -1129,9 +1146,9 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       await makeJobReady(accepted.conversationId);
       const sent: string[] = [];
       const worker = new ConversationWorker(db!, {
-        generateReply: vi.fn().mockRejectedValue(
-          new UsageBudgetError('user_daily_budget'),
-        ),
+        generateReply: vi
+          .fn()
+          .mockRejectedValue(new UsageBudgetError('user_daily_budget')),
         sendReply: vi.fn(async ({ text }: { text: string }) => {
           sent.push(text);
           return { messageToken: 'out-budget-locale' };
@@ -1143,7 +1160,10 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       expect(sent).toEqual([
         'I can’t process a new request right now. Please try again a little later.',
       ]);
-      const turn = await db!.query<{ generation_status: string; delivery_status: string }>(
+      const turn = await db!.query<{
+        generation_status: string;
+        delivery_status: string;
+      }>(
         'SELECT generation_status, delivery_status FROM conversation_turns WHERE conversation_id = $1',
         [accepted.conversationId],
       );
@@ -1176,8 +1196,12 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
          FROM ai_usage_attempts WHERE turn_id IN ($1, $2) ORDER BY turn_id`,
         [expiredReserved.turnId, expiredInflight.turnId],
       );
-      const released = rows.rows.find((row) => row.turn_id === expiredReserved.turnId);
-      const uncertain = rows.rows.find((row) => row.turn_id === expiredInflight.turnId);
+      const released = rows.rows.find(
+        (row) => row.turn_id === expiredReserved.turnId,
+      );
+      const uncertain = rows.rows.find(
+        (row) => row.turn_id === expiredInflight.turnId,
+      );
       expect(released?.reservation_state).toBe('released');
       expect(Number(released?.reserved_usd)).toBe(0);
       expect(uncertain?.reservation_state).toBe('uncertain');
