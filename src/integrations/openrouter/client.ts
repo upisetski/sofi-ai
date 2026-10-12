@@ -37,7 +37,6 @@ export function createOpenRouterClient(
             model: input.model,
             messages: input.messages,
             max_tokens: input.maxOutputTokens,
-            usage: { include: true },
           }),
           signal: AbortSignal.timeout(input.timeoutMs),
         });
