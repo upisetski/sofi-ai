@@ -87,6 +87,12 @@ describe('environment configuration', () => {
     expect(() =>
       parseEnv({ ...baseEnv, AI_ECONOMY_MAX_OUTPUT_TOKENS: '0' }),
     ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_USAGE_INPUT_PRICE_PER_MILLION_USD: '0' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD: '0' }),
+    ).toThrow();
   });
 
   it('rejects unreasonable output-token and timeout limits', () => {
