@@ -98,7 +98,7 @@ describe('OpenRouter client', () => {
             { message: { role: 'assistant', content: 'Partial usage' } },
           ],
           usage: {
-            prompt_tokens: '18',
+            prompt_tokens: 18.5,
             completion_tokens: -1,
             total_tokens: 0,
             cost: '0.5',
