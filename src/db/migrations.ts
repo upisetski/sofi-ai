@@ -201,10 +201,15 @@ CREATE TABLE IF NOT EXISTS ai_usage_attempts (
   cost_kind TEXT NOT NULL CHECK (cost_kind IN ('actual', 'estimated', 'unknown')),
   cost_provenance TEXT NOT NULL,
   reserved_usd NUMERIC(20, 12) NOT NULL DEFAULT 0 CHECK (reserved_usd >= 0),
+  initial_reserved_usd NUMERIC(20, 12) NOT NULL DEFAULT 0 CHECK (initial_reserved_usd >= 0),
   reservation_state TEXT NOT NULL CHECK (reservation_state IN ('reserved', 'in_flight', 'settled', 'released', 'uncertain')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (turn_id, attempt_number)
 );
+
+ALTER TABLE ai_usage_attempts
+  ADD COLUMN IF NOT EXISTS initial_reserved_usd NUMERIC(20, 12) NOT NULL DEFAULT 0;
+UPDATE ai_usage_attempts SET initial_reserved_usd = reserved_usd WHERE initial_reserved_usd = 0 AND reserved_usd > 0;
 
 CREATE INDEX IF NOT EXISTS ai_usage_attempts_user_started_idx
   ON ai_usage_attempts (user_id, started_at);
