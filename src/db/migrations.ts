@@ -207,6 +207,32 @@ CREATE TABLE IF NOT EXISTS ai_usage_attempts (
   UNIQUE (turn_id, attempt_number)
 );
 
+-- Evolve the outcome constraint safely if a pre-release version of WP2 already created the table.
+DO $usage$
+DECLARE
+  outcome_check_definition TEXT;
+BEGIN
+  SELECT pg_get_constraintdef(oid)
+    INTO outcome_check_definition
+    FROM pg_constraint
+   WHERE conrelid = 'ai_usage_attempts'::regclass
+     AND conname = 'ai_usage_attempts_outcome_check';
+
+  IF outcome_check_definition IS NOT NULL
+     AND POSITION('reserved' IN outcome_check_definition) = 0 THEN
+    ALTER TABLE ai_usage_attempts
+      DROP CONSTRAINT ai_usage_attempts_outcome_check;
+    outcome_check_definition := NULL;
+  END IF;
+
+  IF outcome_check_definition IS NULL THEN
+    ALTER TABLE ai_usage_attempts
+      ADD CONSTRAINT ai_usage_attempts_outcome_check
+      CHECK (outcome IN ('reserved', 'in_flight', 'success', 'failure'));
+  END IF;
+END;
+$usage$;
+
 ALTER TABLE ai_usage_attempts
   ADD COLUMN IF NOT EXISTS initial_reserved_usd NUMERIC(20, 12) NOT NULL DEFAULT 0;
 UPDATE ai_usage_attempts SET initial_reserved_usd = reserved_usd WHERE initial_reserved_usd = 0 AND reserved_usd > 0;
