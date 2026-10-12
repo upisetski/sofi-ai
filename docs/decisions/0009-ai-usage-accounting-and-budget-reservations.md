@@ -7,7 +7,7 @@
 
 Sofi is free to users. WP1 provides durable conversation turns and a monotonically increasing generation-attempt count, but provider calls previously had no application-level accounting or aggregate spend guard. OpenRouter Chat Completions can return input/output/total token counts and request cost when usage reporting is explicitly enabled. Model prices can change, and an unknown model must not be treated as free.
 
-Current usage reporting and pricing were verified against OpenRouter's [usage guidance](https://openrouter.ai/docs/guides/best-practices/usage), [model catalog API](https://openrouter.ai/docs/api/api-reference/models/get-models), and [Gemma 3 4B pricing page](https://openrouter.ai/google/gemma-3-4b-it/pricing) on 2026-10-12. The configured model's displayed price was $0.05 per million input tokens and $0.10 per million output tokens. OpenRouter does not guarantee that usage/cost fields are present in every response shape, so application accounting must preserve an unknown state.
+Current usage reporting and pricing were verified against OpenRouter's [official usage accounting documentation](https://github.com/OpenRouterTeam/docs/blob/main/cookbook/administration/usage-accounting.mdx), [model catalog API](https://openrouter.ai/docs/api/api-reference/models/get-model), and [Gemma 3 4B pricing page](https://openrouter.ai/google/gemma-3-4b-it/pricing) on 2026-10-12. Non-streaming Chat Completions automatically include usage; `usage: { include: true }` is deprecated and has no effect, so the adapter does not send it. The configured model's displayed price was $0.05 per million input tokens and $0.10 per million output tokens. Application accounting still treats absent or malformed usage/cost fields as unavailable.
 
 ## Decision
 
