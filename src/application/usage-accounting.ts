@@ -291,16 +291,22 @@ export class UsageAccountingService {
   }
 
   async markInFlight(context: UsageAttemptContext): Promise<void> {
-    const result = await this.db.query(
-      `UPDATE ai_usage_attempts
-       SET reservation_state = 'in_flight'
-       WHERE turn_id = $1 AND attempt_number = $2
-         AND reservation_state = 'reserved'`,
-      [context.turnId, context.attemptNumber],
-    );
-    if ((result.rowCount ?? 0) !== 1) {
-      throw new Error('usage_reservation_transition_failed');
-    }
+    await withTransaction(this.db, async (client) => {
+      await client.query(mutexSql);
+      await client.query(
+        'SELECT id FROM usage_budget_mutex WHERE id = 1 FOR UPDATE',
+      );
+      const result = await client.query(
+        `UPDATE ai_usage_attempts
+         SET reservation_state = 'in_flight', started_at = NOW()
+         WHERE turn_id = $1 AND attempt_number = $2
+           AND reservation_state = 'reserved'`,
+        [context.turnId, context.attemptNumber],
+      );
+      if ((result.rowCount ?? 0) !== 1) {
+        throw new Error('usage_reservation_transition_failed');
+      }
+    });
   }
 
   async markKnownFailure(
