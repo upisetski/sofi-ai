@@ -348,6 +348,9 @@ export function createAiRouter(
         : undefined;
 
       try {
+        if (usageAccounting && input.usageContext) {
+          await usageAccounting.markInFlight(input.usageContext);
+        }
         const result = await provider.generate({
           model,
           messages: chatMessages,
