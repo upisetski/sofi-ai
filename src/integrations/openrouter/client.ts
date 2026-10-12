@@ -302,11 +302,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function nonNegativeInteger(value: unknown): number | undefined {
-  return typeof value === 'number' &&
+  if (
+    typeof value === 'number' &&
     Number.isSafeInteger(value) &&
     value >= 0
-    ? value
-    : undefined;
+  ) {
+    return value;
+  }
+  return undefined;
 }
 
 function nonNegativeNumber(value: unknown): number | undefined {
