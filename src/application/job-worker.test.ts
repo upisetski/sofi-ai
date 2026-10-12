@@ -981,6 +981,119 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       expect(rows.rows[0]?.count).toBe(2);
     });
 
+    it('releases a known failed attempt idempotently', async () => {
+      const context = await createUsageTurn('known-failure');
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+      await accounting.reserve(reservationInput(context));
+      await accounting.markInFlight(context);
+
+      await accounting.markKnownFailure(context, 'http_401', 18);
+      await accounting.markKnownFailure(context, 'http_401', 22);
+
+      const row = await db!.query<{
+        reservation_state: string;
+        outcome: string;
+        failure_category: string;
+        reserved_usd: string;
+      }>(
+        `SELECT reservation_state, outcome, failure_category, reserved_usd::text
+         FROM ai_usage_attempts WHERE turn_id = $1`,
+        [context.turnId],
+      );
+      expect(row.rows[0]).toMatchObject({
+        reservation_state: 'released',
+        outcome: 'failure',
+        failure_category: 'http_401',
+      });
+      expect(Number(row.rows[0]?.reserved_usd)).toBe(0);
+    });
+
+    it('keeps ambiguous timeout spend held even after a later release attempt', async () => {
+      const context = await createUsageTurn('ambiguous-timeout');
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+      const reservation = await accounting.reserve(reservationInput(context));
+      await accounting.markInFlight(context);
+
+      await accounting.markAmbiguousFailure(context, 'timeout', 30);
+      await accounting.markKnownFailure(context, 'timeout', 31);
+
+      const row = await db!.query<{
+        reservation_state: string;
+        cost_kind: string;
+        reserved_usd: string;
+      }>(
+        `SELECT reservation_state, cost_kind, reserved_usd::text
+         FROM ai_usage_attempts WHERE turn_id = $1`,
+        [context.turnId],
+      );
+      expect(row.rows[0]).toMatchObject({
+        reservation_state: 'uncertain',
+        cost_kind: 'unknown',
+      });
+      expect(Number(row.rows[0]?.reserved_usd)).toBeCloseTo(
+        reservation.reservedUsd,
+      );
+    });
+
+    it('records a retry as a separate provider attempt for the same turn', async () => {
+      const firstAttempt = await createUsageTurn('attempt-retry');
+      const secondAttempt = {
+        ...firstAttempt,
+        attemptNumber: 2,
+      };
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+      await accounting.reserve(reservationInput(firstAttempt));
+      await accounting.markInFlight(firstAttempt);
+      await accounting.markAmbiguousFailure(firstAttempt, 'network', 35);
+
+      await accounting.reserve(reservationInput(secondAttempt));
+      await accounting.markInFlight(secondAttempt);
+      await accounting.reconcileSuccess(
+        secondAttempt,
+        { promptTokens: 12, completionTokens: 6, costUsd: 0.000002 },
+        20,
+      );
+
+      const rows = await db!.query<{
+        attempt_number: number;
+        reservation_state: string;
+        outcome: string;
+      }>(
+        `SELECT attempt_number, reservation_state, outcome
+         FROM ai_usage_attempts WHERE turn_id = $1 ORDER BY attempt_number`,
+        [firstAttempt.turnId],
+      );
+      expect(rows.rows).toEqual([
+        { attempt_number: 1, reservation_state: 'uncertain', outcome: 'failure' },
+        { attempt_number: 2, reservation_state: 'settled', outcome: 'success' },
+      ]);
+    });
+
+    it('keeps usage records and operational events free of user content', async () => {
+      const context = await createUsageTurn('privacy');
+      const records: Array<Record<string, string | number | boolean>> = [];
+      const accounting = new UsageAccountingService(db!, budgetConfig(), {
+        info: (record) => records.push(record),
+        error: (record) => records.push(record),
+      });
+      const privateText = 'PII-NEVER-PERSIST-OR-LOG-9fb2';
+      await accounting.reserve({
+        ...reservationInput(context),
+        messages: [{ role: 'user', content: privateText }],
+      });
+
+      expect(JSON.stringify(records)).not.toContain(privateText);
+      const columns = await db!.query<{ column_name: string }>(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_name = 'ai_usage_attempts'`,
+      );
+      const columnNames = columns.rows.map((row) => row.column_name);
+      expect(columnNames).not.toContain('content');
+      expect(columnNames).not.toContain('messages');
+      expect(columnNames).not.toContain('prompt_text');
+      expect(columnNames).not.toContain('completion_text');
+    });
+
     it('keeps a conservative hold when successful provider usage and cost are missing', async () => {
       const context = await createUsageTurn('unknown');
       const accounting = new UsageAccountingService(db!, budgetConfig());
