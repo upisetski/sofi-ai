@@ -82,7 +82,10 @@ function estimatedPromptTokens(
 ): number {
   // Conservative guard, not a tokenizer: 8 tokens per UTF-16 code unit plus
   // per-message overhead. Prices are pinned by model and reviewed by operators.
-  const codeUnits = messages.reduce((total, message) => total + message.content.length, 0);
+  const codeUnits = messages.reduce(
+    (total, message) => total + message.content.length,
+    0,
+  );
   return Math.ceil(codeUnits * 8 + messages.length * 8);
 }
 
@@ -104,9 +107,10 @@ async function countedSpend(
   userId: string | undefined,
   period: 'day' | 'month',
 ): Promise<number> {
-  const start = period === 'day'
-    ? `date_trunc('day', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`
-    : `date_trunc('month', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`;
+  const start =
+    period === 'day'
+      ? `date_trunc('day', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`
+      : `date_trunc('month', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`;
   const result = await client.query<{ spend: string | null }>(
     `SELECT COALESCE(SUM(
        CASE
@@ -143,7 +147,11 @@ export class UsageAccountingService {
 
     const promptTokens = estimatedPromptTokens(input.messages);
     let effectiveMaxOutputTokens = input.maxOutputTokens;
-    const normalEstimate = estimatedCost(promptTokens, input.maxOutputTokens, this.config);
+    const normalEstimate = estimatedCost(
+      promptTokens,
+      input.maxOutputTokens,
+      this.config,
+    );
 
     return withTransaction(this.db, async (client) => {
       await client.query(mutexSql);
@@ -159,15 +167,22 @@ export class UsageAccountingService {
            AND started_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`,
         [input.userId],
       );
-      if (Number(recentAttempts.rows[0]?.count ?? 0) >= this.config.userDailyRequestLimit) {
+      if (
+        Number(recentAttempts.rows[0]?.count ?? 0) >=
+        this.config.userDailyRequestLimit
+      ) {
         this.logRejection(input, 'request_rate_limit');
         throw new UsageBudgetError('request_rate_limit');
       }
 
       const threshold = this.config.economyThresholdPercent / 100;
       const enteringEconomy =
-        (globalDaySpend + normalEstimate) / this.config.globalDailyBudgetUsd >= threshold ||
-        (globalMonthSpend + normalEstimate) / this.config.globalMonthlyBudgetUsd >= threshold ||
+        (globalDaySpend + normalEstimate) /
+          this.config.globalDailyBudgetUsd >=
+          threshold ||
+        (globalMonthSpend + normalEstimate) /
+          this.config.globalMonthlyBudgetUsd >=
+          threshold ||
         normalEstimate > this.config.requestMaxEstimatedCostUsd;
       if (enteringEconomy) {
         effectiveMaxOutputTokens = Math.min(
@@ -185,15 +200,21 @@ export class UsageAccountingService {
         this.logRejection(input, 'request_cost_limit');
         throw new UsageBudgetError('request_cost_limit');
       }
-      if (userDaySpend + reservationEstimate > this.config.userDailyBudgetUsd) {
+      if (
+        userDaySpend + reservationEstimate > this.config.userDailyBudgetUsd
+      ) {
         this.logRejection(input, 'user_daily_budget');
         throw new UsageBudgetError('user_daily_budget');
       }
-      if (globalDaySpend + reservationEstimate > this.config.globalDailyBudgetUsd) {
+      if (
+        globalDaySpend + reservationEstimate > this.config.globalDailyBudgetUsd
+      ) {
         this.logRejection(input, 'global_daily_budget');
         throw new UsageBudgetError('global_daily_budget');
       }
-      if (globalMonthSpend + reservationEstimate > this.config.globalMonthlyBudgetUsd) {
+      if (
+        globalMonthSpend + reservationEstimate > this.config.globalMonthlyBudgetUsd
+      ) {
         this.logRejection(input, 'global_monthly_budget');
         throw new UsageBudgetError('global_monthly_budget');
       }
@@ -393,9 +414,14 @@ export class UsageAccountingService {
       }
     });
 
-    const costKind = actualCost !== undefined && Number.isFinite(actualCost) && actualCost >= 0
-      ? 'actual'
-      : hasTokens ? 'estimated' : 'unknown';
+    const costKind =
+      actualCost !== undefined &&
+      Number.isFinite(actualCost) &&
+      actualCost >= 0
+        ? 'actual'
+        : hasTokens
+          ? 'estimated'
+          : 'unknown';
     if (costKind === 'unknown') {
       this.logger.error({
         event: 'ai_usage_provider_data_missing',
@@ -428,7 +454,9 @@ export class UsageAccountingService {
       turnId: context.turnId,
       attempt: context.attemptNumber,
       costKind,
-      ...(actualCost !== undefined && Number.isFinite(actualCost) && actualCost >= 0
+      ...(actualCost !== undefined &&
+      Number.isFinite(actualCost) &&
+      actualCost >= 0
         ? { costUsd: actualCost }
         : {}),
       durationMs: Math.max(0, durationMs),
@@ -475,11 +503,12 @@ export class UsageAccountingService {
     reason: UsageLimitReason,
   ): void {
     this.logger.info({
-      event: reason === 'global_daily_budget' || reason === 'global_monthly_budget'
-        ? 'ai_global_budget_ceiling_reached'
-        : reason === 'request_rate_limit' || reason === 'user_daily_budget'
-          ? 'ai_user_limit_reached'
-          : 'ai_budget_guard_rejected',
+      event:
+        reason === 'global_daily_budget' || reason === 'global_monthly_budget'
+          ? 'ai_global_budget_ceiling_reached'
+          : reason === 'request_rate_limit' || reason === 'user_daily_budget'
+            ? 'ai_user_limit_reached'
+            : 'ai_budget_guard_rejected',
       turnId: input.turnId,
       route: input.route,
       model: input.model,
