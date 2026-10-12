@@ -343,7 +343,9 @@ export class UsageAccountingService {
   ): Promise<void> {
     await withTransaction(this.db, async (client) => {
       await client.query(mutexSql);
-      await client.query('SELECT id FROM usage_budget_mutex WHERE id = 1 FOR UPDATE');
+      await client.query(
+        'SELECT id FROM usage_budget_mutex WHERE id = 1 FOR UPDATE',
+      );
       await client.query(
         `UPDATE ai_usage_attempts
          SET completed_at = NOW(), duration_ms = $3, outcome = 'failure',
@@ -383,7 +385,9 @@ export class UsageAccountingService {
 
     await withTransaction(this.db, async (client) => {
       await client.query(mutexSql);
-      await client.query('SELECT id FROM usage_budget_mutex WHERE id = 1 FOR UPDATE');
+      await client.query(
+        'SELECT id FROM usage_budget_mutex WHERE id = 1 FOR UPDATE',
+      );
 
       if (
         actualCost !== undefined &&
