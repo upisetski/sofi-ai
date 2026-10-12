@@ -189,7 +189,7 @@ CREATE TABLE IF NOT EXISTS ai_usage_attempts (
   started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
   duration_ms BIGINT CHECK (duration_ms IS NULL OR duration_ms >= 0),
-  outcome TEXT NOT NULL CHECK (outcome IN ('in_flight', 'success', 'failure')),
+  outcome TEXT NOT NULL CHECK (outcome IN ('reserved', 'in_flight', 'success', 'failure')),
   failure_category TEXT,
   prompt_estimated_tokens BIGINT CHECK (prompt_estimated_tokens IS NULL OR prompt_estimated_tokens >= 0),
   prompt_tokens BIGINT CHECK (prompt_tokens IS NULL OR prompt_tokens >= 0),
