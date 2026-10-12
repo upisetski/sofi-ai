@@ -7,6 +7,7 @@ import { createDb } from './db/client.js';
 import { migrate } from './db/migrations.js';
 import { createOpenRouterClient } from './integrations/openrouter/client.js';
 import { createViberClient } from './integrations/viber/client.js';
+import { getWelcome } from './localization/index.js';
 
 const db = createDb();
 const viberClient = createViberClient({ authToken: env.VIBER_AUTH_TOKEN });
@@ -27,8 +28,13 @@ try {
   await migrate(db);
 
   const worker = new ConversationWorker(db, {
-    onTextBurstComplete: (input) =>
-      handleTextBurstComplete(viberClient, aiRouter, input),
+    generateReply: (input) => handleTextBurstComplete(aiRouter, input),
+    sendReply: (input) =>
+      viberClient.sendTextMessage({
+        receiver: input.userId,
+        senderName: getWelcome(input.language).senderName,
+        text: input.text,
+      }),
   });
   worker.start();
 

@@ -156,12 +156,14 @@ Move to Redis + BullMQ + dedicated workers only if actual workload makes that wo
 
 ## Conversations
 
-Conversation processing is backed by five MVP tables:
+Conversation processing is backed by PostgreSQL tables:
 
 - `users` — provider identity.
-- `conversations` — current conversation and processing state.
+- `conversations` — current conversation, context version, and processing state.
 - `conversation_events` — durable inbound callback history.
-- `messages` — normalized conversation message projection.
+- `messages` — ordered user/assistant message content; assistant content is stored only once.
+- `conversation_turns` — durable turn generation and delivery state, retry counters, and the reference to the stored assistant message.
+- `viber_delivery_callbacks` — content-free Viber delivery callback metadata keyed by outbound message token, including callbacks that arrive before the sender has persisted its token.
 - `jobs` — asynchronous processing and recovery.
 
 For a conversation, each accepted event receives a local position. The position represents durable acceptance order and is not a chronological sequence.
@@ -176,7 +178,7 @@ where `occurred_at` is the Viber callback timestamp and `id` provides determinis
 
 Very late events are retained as durable history and surfaced operationally rather than silently rewriting already processed conversation state.
 
-Conversation context is built from a bounded set of recent messages and the current processing unit. Do not send unbounded history to the model.
+Conversation context uses up to 12 recent user/assistant messages from the current context version, followed by the current debounced burst. The combined history and current-user content is bounded by the existing 12,000-character AI input limit; current input takes priority over older history. History includes only previous turns whose generation succeeded and whose outbound send was accepted or confirmed delivered. Failed-generation fallbacks and reset acknowledgements are not fed back as context. Users can send `/reset` (or `/forget`) to clear prior context for their conversation.
 
 Rapid text-message debounce is implemented at the job scheduling layer. Messages remain separate durable events/messages; debounce changes only when the conversation processing job becomes eligible. The current Viber Bot API does not provide a typing-indicator operation, so the waiting period does not send a typing signal.
 
@@ -203,7 +205,9 @@ Target route classes for the first text + web MVP:
 
 Business logic should not depend directly on a specific model name. The initial `cheap_text` route maps to `AI_MODEL_CHEAP_TEXT` (default `google/gemma-3-4b-it`). The OpenRouter adapter sets a request timeout and `max_tokens`, but does not hard-code provider selection, ZDR, or data-collection policy in each request; these policies are configured centrally in OpenRouter account privacy settings and guardrails where supported. Omitting request-level privacy options does not disable account-wide or guardrail enforcement. Free-tier routing does not support data-policy-based routing, so use only synthetic test messages unless the selected plan and endpoint provide the required privacy guarantees. The current implementation uses OpenRouter defaults for provider selection and fallback. Before the MVP, configure and test route-specific models and bounded fallback/retry behavior, as described in the [roadmap](roadmap.md). The combined user input is capped at 12000 characters; generated output is capped by `AI_MAX_OUTPUT_TOKENS` (default 512).
 
-The current worker completes its PostgreSQL job before attempting AI generation and delivery. Generation errors are observed through structured logs and a temporary-error response; there is no automatic retry or fallback, so a subsequent Viber delivery failure is not retried. This is a known pre-MVP reliability gap: persist turn/reply and delivery state, then implement bounded recovery as specified by the [roadmap](roadmap.md).
+For each processed text burst, one `conversation_turns` row is committed with the event cursor and inbound message projection. A conversation worker holds a PostgreSQL session-level advisory lock for the lifecycle of that conversation turn, generates only when no assistant message has been persisted, and commits the assistant message plus delivery state before attempting an outbound Viber send. The job remains pending while eligible turn or inbound work remains and is recovered after its lease becomes stale. Generation retries are bounded to three attempts and delivery retries to five attempts with backoff; terminal states and safe failure categories remain queryable. The worker periodically redacts processed inbound event payloads after 30 days, deletes expired message content after 30 days unless required for an unfinished turn, and retains deduplication/delivery metadata for up to 90 days.
+
+The Viber Bot API returns a message token for accepted `send_message` calls and provides `delivered`, `seen`, and `failed` callbacks. The application stores these callbacks and correlates them with turns by token, including callback-before-response races. Viber does not document an outbound idempotency key, so an interrupted send with an unknown outcome is retried at most within the bounded delivery policy and may be delivered twice. A `failed` callback is stored as a terminal/uncertain outcome rather than automatically resent. See [ADR 0008](decisions/0008-durable-chat-turn-and-viber-delivery.md) and the [feature specification](features/multi-turn-context-and-durable-delivery.md).
 
 ## OpenRouter
 
@@ -237,7 +241,7 @@ Do not persist images by default.
 
 ## Data
 
-Current PostgreSQL persistence covers users, conversations, inbound events/messages, and jobs. Durable assistant-turn/delivery state, AI usage and cost accounting, and product analytics persistence still need to be introduced in focused feature PRs. Do not assume these tables/controls already exist because they appear in a target design.
+Current PostgreSQL persistence covers users, conversations, inbound events, user/assistant messages, durable conversation-turn/delivery state, delivery callback metadata, and jobs. AI usage/cost accounting and product analytics persistence are still separate roadmap work packages. Do not assume those controls exist merely because they appear in target designs.
 
 ## Rate and budget protection
 

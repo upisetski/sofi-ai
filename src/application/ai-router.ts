@@ -2,8 +2,13 @@ import { resolveLocale } from '../localization/index.js';
 
 export type AiRoute = 'cheap_text';
 
+export interface AiContextMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface AiChatMessage {
-  role: 'system' | 'user';
+  role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
@@ -117,6 +122,7 @@ export class AiGenerationError extends Error {
 export interface AiRouterInput {
   route: AiRoute;
   messages: string[];
+  history?: AiContextMessage[];
   language?: string;
 }
 
@@ -161,6 +167,7 @@ export interface AiRouterLogger {
 
 export const MAX_AI_INPUT_CHARS = 12_000;
 export const MAX_AI_INPUT_MESSAGES = 100;
+export const MAX_CONTEXT_MESSAGES = 12;
 
 const truncationMarker =
   '\\n[The remainder of this message burst was omitted because it exceeded the input limit.]';
@@ -184,21 +191,64 @@ export function buildAiMessages(
   messages: string[],
   language?: string,
   maxInputChars = MAX_AI_INPUT_CHARS,
+  history: AiContextMessage[] = [],
 ): AiChatMessage[] {
   const locale = resolveLocale(language);
   const boundedMessages = boundMessages(messages, maxInputChars);
+  const currentChars = boundedMessages.reduce(
+    (total, message) => total + message.length,
+    0,
+  );
+  const boundedHistory = boundHistory(
+    history,
+    Math.max(0, maxInputChars - currentChars),
+  );
   const systemPrompt = [
     'You are Sofi, an AI assistant, not a human.',
     `Answer in ${localeNames[locale]}.`,
     'Be warm, concise, natural, and useful.',
-    'Treat the user messages below as one current request, in the order received.',
+    'The conversation history is ordered from oldest to newest.',
+    'Use prior user and assistant turns to understand references in the latest user message(s).',
     'Never imply browsing or external access unless the information was actually supplied.',
   ].join(' ');
 
   return [
     { role: 'system', content: systemPrompt },
+    ...boundedHistory,
     ...boundedMessages.map((content) => ({ role: 'user' as const, content })),
   ];
+}
+
+function boundHistory(
+  history: AiContextMessage[],
+  maxChars: number,
+): AiContextMessage[] {
+  if (maxChars <= 0 || history.length === 0) return [];
+
+  const recent = history.slice(-MAX_CONTEXT_MESSAGES);
+  const selected: AiContextMessage[] = [];
+  let remaining = maxChars;
+
+  for (let index = recent.length - 1; index >= 0; index -= 1) {
+    const message = recent[index];
+    if (!message || remaining <= 0) break;
+
+    if (message.content.length <= remaining) {
+      selected.unshift(message);
+      remaining -= message.content.length;
+      continue;
+    }
+
+    if (selected.length === 0) {
+      selected.unshift({
+        role: message.role,
+        content: message.content.slice(-remaining),
+      });
+    }
+    break;
+  }
+
+  return selected;
 }
 
 function boundMessages(messages: string[], maxInputChars: number): string[] {
@@ -274,7 +324,12 @@ export function createAiRouter(
       try {
         const result = await provider.generate({
           model,
-          messages: buildAiMessages(input.messages, input.language),
+          messages: buildAiMessages(
+            input.messages,
+            input.language,
+            MAX_AI_INPUT_CHARS,
+            input.history,
+          ),
           maxOutputTokens: config.maxOutputTokens,
           timeoutMs: config.requestTimeoutMs,
         });

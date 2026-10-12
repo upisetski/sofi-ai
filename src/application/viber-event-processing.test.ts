@@ -32,7 +32,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   if (!db) return;
   await db.query(
-    'TRUNCATE jobs, messages, conversation_events, conversations, users RESTART IDENTITY CASCADE',
+    'TRUNCATE jobs, viber_delivery_callbacks, conversation_turns, messages, conversation_events, conversations, users RESTART IDENTITY CASCADE',
   );
 });
 
@@ -59,10 +59,9 @@ describe.skipIf(!databaseUrl)('Viber event processing', () => {
 
     const processed = await processConversation(db!, first.conversationId);
 
-    expect(processed.events.map((event) => event.occurredAt.getTime())).toEqual([
-      1000,
-      2000,
-    ]);
+    expect(processed.events.map((event) => event.occurredAt.getTime())).toEqual(
+      [1000, 2000],
+    );
 
     const messages = await db!.query(
       'SELECT content FROM messages ORDER BY id ASC',

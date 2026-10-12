@@ -15,6 +15,7 @@ import { createDb, type Db } from './db/client.js';
 import { migrate } from './db/migrations.js';
 import {
   getAiTemporaryErrorResponse,
+  getContextResetConfirmation,
   getWelcome,
   getWelcomeText,
   resolveLocale,
@@ -45,7 +46,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   if (!db) return;
   await db.query(
-    'TRUNCATE jobs, messages, conversation_events, conversations, users RESTART IDENTITY CASCADE',
+    'TRUNCATE jobs, viber_delivery_callbacks, conversation_turns, messages, conversation_events, conversations, users RESTART IDENTITY CASCADE',
   );
 });
 
@@ -96,6 +97,15 @@ describe('localization', () => {
     );
     expect(getAiTemporaryErrorResponse('en').text).toBe(
       'I can’t prepare a response right now. Please try again shortly.',
+    );
+    expect(getContextResetConfirmation('ru').text).toBe(
+      'Контекст разговора очищен. Начнём заново.',
+    );
+    expect(getContextResetConfirmation('be').text).toBe(
+      'Кантэкст размовы ачышчаны. Пачнём нанова.',
+    );
+    expect(getContextResetConfirmation('en').text).toBe(
+      'Conversation context cleared. Let’s start fresh.',
     );
   });
 });
@@ -149,50 +159,42 @@ describe('Viber webhook', () => {
     await app.close();
   });
 
-  it.each([
-    [
-      'webhook',
-      {
-        event: 'webhook',
-        timestamp: 1457764197627,
-        message_token: 241256543215,
+  it('acknowledges the Viber availability callback without database processing', async () => {
+    process.env.VIBER_AUTH_TOKEN = authToken;
+    const app = buildApp();
+    const body = JSON.stringify({
+      event: 'webhook',
+      timestamp: 1457764197627,
+      message_token: 241256543215,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/viber/webhook',
+      headers: {
+        'content-type': 'application/json',
+        'x-viber-content-signature': sign(body),
       },
-    ],
-    [
-      'delivered',
-      {
-        event: 'delivered',
-        timestamp: 1457764197627,
-        message_token: 241256543216,
-        user_id: '01234567890A==',
-      },
-    ],
-    [
-      'seen',
-      {
-        event: 'seen',
-        timestamp: 1457764197627,
-        message_token: 241256543217,
-        user_id: '01234567890A==',
-      },
-    ],
-    [
-      'failed',
-      {
+      payload: body,
+    });
+
+    expect(response.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it.skipIf(!databaseUrl)(
+    'persists Viber delivery callback metadata without storing the description',
+    async () => {
+      process.env.VIBER_AUTH_TOKEN = authToken;
+      const app = buildApp({ db: requireTestDb() });
+      const body = JSON.stringify({
         event: 'failed',
         timestamp: 1457764197627,
         message_token: 241256543218,
         user_id: '01234567890A==',
-        desc: 'failure description',
-      },
-    ],
-  ])(
-    'acknowledges the %s callback without database processing',
-    async (_event, payload) => {
-      process.env.VIBER_AUTH_TOKEN = authToken;
-      const app = buildApp();
+        desc: 'private delivery diagnostic that must not persist',
+      });
 
-      const body = JSON.stringify(payload);
       const response = await app.inject({
         method: 'POST',
         url: '/viber/webhook',
@@ -204,7 +206,15 @@ describe('Viber webhook', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.body).toBe('');
+      const callbacks = await requireTestDb().query(
+        'SELECT message_token, event_type FROM viber_delivery_callbacks',
+      );
+      expect(callbacks.rows).toEqual([
+        { message_token: '241256543218', event_type: 'failed' },
+      ]);
+      expect(JSON.stringify(callbacks.rows)).not.toContain(
+        'private delivery diagnostic',
+      );
 
       await app.close();
     },
