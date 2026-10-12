@@ -97,7 +97,10 @@ describe('environment configuration', () => {
       parseEnv({ ...baseEnv, AI_GLOBAL_DAILY_BUDGET_USD: 'Infinity' }),
     ).toThrow();
     expect(() =>
-      parseEnv({ ...baseEnv, AI_USAGE_INPUT_PRICE_PER_MILLION_USD: 'Infinity' }),
+      parseEnv({
+        ...baseEnv,
+        AI_USAGE_INPUT_PRICE_PER_MILLION_USD: 'Infinity',
+      }),
     ).toThrow();
   });
 
