@@ -29,6 +29,50 @@ export const envSchema = z
       .min(1000)
       .max(120000)
       .default(30000),
+    AI_USAGE_PRICING_MODEL: z.string().min(1).default('google/gemma-3-4b-it'),
+    AI_USAGE_INPUT_PRICE_PER_MILLION_USD: z.coerce
+      .number()
+      .finite()
+      .positive()
+      .default(0.05),
+    AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD: z.coerce
+      .number()
+      .finite()
+      .positive()
+      .default(0.1),
+    AI_USER_DAILY_REQUEST_LIMIT: z.coerce.number().int().positive().default(50),
+    AI_USER_DAILY_BUDGET_USD: z.coerce
+      .number()
+      .finite()
+      .positive()
+      .default(0.1),
+    AI_REQUEST_MAX_ESTIMATED_COST_USD: z.coerce
+      .number()
+      .finite()
+      .positive()
+      .default(0.01),
+    AI_GLOBAL_DAILY_BUDGET_USD: z.coerce
+      .number()
+      .finite()
+      .positive()
+      .default(2),
+    AI_GLOBAL_MONTHLY_BUDGET_USD: z.coerce
+      .number()
+      .finite()
+      .positive()
+      .default(30),
+    AI_ECONOMY_THRESHOLD_PERCENT: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(99)
+      .default(80),
+    AI_ECONOMY_MAX_OUTPUT_TOKENS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(8192)
+      .default(256),
     SENTRY_DSN: z.string().optional(),
     LOG_LEVEL: z.string().default('info'),
   })

@@ -191,6 +191,16 @@ OPENROUTER_API_KEY=...
 AI_MODEL_CHEAP_TEXT=google/gemma-3-4b-it
 AI_MAX_OUTPUT_TOKENS=512
 AI_REQUEST_TIMEOUT_MS=30000
+AI_USAGE_PRICING_MODEL=google/gemma-3-4b-it
+AI_USAGE_INPUT_PRICE_PER_MILLION_USD=0.05
+AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD=0.1
+AI_USER_DAILY_REQUEST_LIMIT=50
+AI_USER_DAILY_BUDGET_USD=0.1
+AI_REQUEST_MAX_ESTIMATED_COST_USD=0.01
+AI_GLOBAL_DAILY_BUDGET_USD=2
+AI_GLOBAL_MONTHLY_BUDGET_USD=30
+AI_ECONOMY_THRESHOLD_PERCENT=80
+AI_ECONOMY_MAX_OUTPUT_TOKENS=256
 ```
 
 In production, `DATABASE_URL` is required during configuration parsing. `OPENROUTER_API_KEY` is also required when `AI_ENABLED=true`. Set `AI_ENABLED=false` to disable generation; the debounce handler sends a localized temporary-unavailable response. The application runs database migrations before starting the HTTP server, and the `/health` endpoint verifies PostgreSQL readiness.

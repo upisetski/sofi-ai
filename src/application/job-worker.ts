@@ -6,7 +6,11 @@ import {
   type AiContextMessage,
 } from './ai-router.js';
 import { processConversation } from './conversation-processor.js';
-import { getAiTemporaryErrorResponse } from '../localization/index.js';
+import {
+  getAiLimitReachedResponse,
+  getAiTemporaryErrorResponse,
+} from '../localization/index.js';
+import { UsageBudgetError } from './usage-accounting.js';
 import { withTransaction } from '../db/client.js';
 
 const jobType = 'process_conversation';
@@ -19,6 +23,12 @@ export interface TextBurstCompleteInput {
   language?: string;
   messages: string[];
   history: AiContextMessage[];
+  usageContext?: {
+    userId: string;
+    conversationId: string;
+    turnId: string;
+    attemptNumber: number;
+  };
 }
 
 export interface SendReplyInput {
@@ -70,6 +80,7 @@ interface ActiveTurn {
   assistant_content: string | null;
   last_error_category: string | null;
   user_id: string;
+  account_user_id: string;
   locale: string | null;
 }
 
@@ -233,6 +244,12 @@ export class ConversationWorker {
         await client.query(
           `DELETE FROM viber_delivery_callbacks
            WHERE received_at < NOW() - INTERVAL '90 days'`,
+        );
+
+        await client.query(
+          `DELETE FROM ai_usage_attempts
+           WHERE started_at < NOW() - INTERVAL '90 days'
+             AND reservation_state IN ('settled', 'released', 'uncertain')`,
         );
       });
 
@@ -409,7 +426,7 @@ export class ConversationWorker {
               t.delivery_status, t.generation_attempts, t.delivery_attempts,
               t.available_at, t.assistant_message_id, t.last_error_category,
               m.content AS assistant_content,
-              u.provider_user_id AS user_id, c.locale
+              u.provider_user_id AS user_id, c.user_id AS account_user_id, c.locale
        FROM conversation_turns t
        JOIN conversations c ON c.id = t.conversation_id
        JOIN users u ON u.id = c.user_id
@@ -482,6 +499,13 @@ export class ConversationWorker {
     const attempt = claimed.rows[0]?.generation_attempts;
     if (attempt === undefined) return;
 
+    generationInput.usageContext = {
+      userId: turn.account_user_id,
+      conversationId: turn.conversation_id,
+      turnId: turn.id,
+      attemptNumber: attempt,
+    };
+
     const startedAt = Date.now();
     let text: string;
 
@@ -491,6 +515,21 @@ export class ConversationWorker {
       text = (await this.generateReply(generationInput)).trim();
       if (!text) throw new AiGenerationError('malformed_response');
     } catch (error) {
+      if (error instanceof UsageBudgetError) {
+        await this.persistFallbackReply(
+          turn,
+          'usage_budget_limit',
+          getAiLimitReachedResponse(turn.locale ?? undefined).text,
+        );
+        this.logger.info({
+          event: 'ai_request_blocked_by_usage_limit',
+          turnId: turn.id,
+          attempt,
+          reason: error.reason,
+        });
+        return;
+      }
+
       const category = safeErrorCategory(error);
       const retryable = isRetryableGenerationError(error);
       const shouldRetry = retryable && attempt < this.maxGenerationAttempts;
@@ -624,6 +663,7 @@ export class ConversationWorker {
   private async persistFallbackReply(
     turn: ActiveTurn,
     category: string,
+    replyText?: string,
   ): Promise<void> {
     await withTransaction(this.db, async (client) => {
       const message = await client.query<{ id: string }>(
@@ -636,7 +676,8 @@ export class ConversationWorker {
         [
           turn.conversation_id,
           turn.id,
-          getAiTemporaryErrorResponse(turn.locale ?? undefined).text,
+          replyText ??
+            getAiTemporaryErrorResponse(turn.locale ?? undefined).text,
           Number(turn.end_position),
           turn.context_version,
         ],

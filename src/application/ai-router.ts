@@ -1,6 +1,10 @@
 import { resolveLocale } from '../localization/index.js';
+import type {
+  UsageAccountingService,
+  UsageAttemptContext,
+} from './usage-accounting.js';
 
-export type AiRoute = 'cheap_text';
+export type AiRoute = 'cheap_text' | 'web';
 
 export interface AiContextMessage {
   role: 'user' | 'assistant';
@@ -21,6 +25,7 @@ export interface AiUsage {
 
 export interface AiGenerationResult {
   text: string;
+  providerGenerationId?: string;
   usage?: AiUsage;
 }
 
@@ -124,6 +129,7 @@ export interface AiRouterInput {
   messages: string[];
   history?: AiContextMessage[];
   language?: string;
+  usageContext?: UsageAttemptContext;
 }
 
 export interface AiRouter {
@@ -296,7 +302,12 @@ export function createAiRouter(
   config: AiRouterConfig,
   provider: AiProvider,
   logger: AiRouterLogger = defaultLogger,
+  usageAccounting?: UsageAccountingService,
 ): AiRouter {
+  if (process.env.NODE_ENV === 'production' && !usageAccounting) {
+    throw new Error('Usage accounting is required for production AI calls');
+  }
+
   return {
     async generate(input) {
       const model = config.models[input.route];
@@ -320,19 +331,48 @@ export function createAiRouter(
       }
 
       const startedAt = Date.now();
+      const chatMessages = buildAiMessages(
+        input.messages,
+        input.language,
+        MAX_AI_INPUT_CHARS,
+        input.history,
+      );
+      if (usageAccounting && !input.usageContext) {
+        // If cost controls are configured, an unaccounted call must never pass.
+        throw new AiGenerationError('configuration');
+      }
+
+      const reservation =
+        usageAccounting && input.usageContext
+          ? await usageAccounting.reserve({
+              ...input.usageContext,
+              route: input.route,
+              model,
+              messages: chatMessages,
+              maxOutputTokens: config.maxOutputTokens,
+            })
+          : undefined;
 
       try {
+        if (usageAccounting && input.usageContext) {
+          await usageAccounting.markInFlight(input.usageContext);
+        }
         const result = await provider.generate({
           model,
-          messages: buildAiMessages(
-            input.messages,
-            input.language,
-            MAX_AI_INPUT_CHARS,
-            input.history,
-          ),
-          maxOutputTokens: config.maxOutputTokens,
+          messages: chatMessages,
+          maxOutputTokens:
+            reservation?.maxOutputTokens ?? config.maxOutputTokens,
           timeoutMs: config.requestTimeoutMs,
         });
+
+        if (usageAccounting && input.usageContext) {
+          await usageAccounting.reconcileSuccess(
+            input.usageContext,
+            result.usage,
+            Date.now() - startedAt,
+            result.providerGenerationId,
+          );
+        }
 
         const text = result.text.trim();
         if (!text) throw new AiGenerationError('malformed_response');
@@ -363,6 +403,33 @@ export function createAiRouter(
           cause instanceof AiGenerationError
             ? cause
             : new AiGenerationError('network');
+        if (usageAccounting && input.usageContext && reservation) {
+          const knownPreProviderFailure =
+            error.kind === 'configuration' ||
+            (error.kind === 'http' &&
+              typeof error.httpStatus === 'number' &&
+              error.httpStatus >= 400 &&
+              error.httpStatus < 500 &&
+              error.httpStatus !== 408 &&
+              error.httpStatus !== 425);
+          const category =
+            error.kind === 'http' && error.httpStatus
+              ? `http_${error.httpStatus}`
+              : error.kind;
+          if (knownPreProviderFailure) {
+            await usageAccounting.markKnownFailure(
+              input.usageContext,
+              category,
+              Date.now() - startedAt,
+            );
+          } else {
+            await usageAccounting.markAmbiguousFailure(
+              input.usageContext,
+              category,
+              Date.now() - startedAt,
+            );
+          }
+        }
         logger.error({
           event: 'ai_generation_failed',
           route: input.route,

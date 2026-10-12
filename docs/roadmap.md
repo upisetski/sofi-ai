@@ -48,7 +48,7 @@ Already implemented on the current main branch:
 - Automated tests for routing, mocked OpenRouter responses, debounce, and core integration behavior.
 - Railway-oriented deployment, database migrations/readiness checks, Docker build, and CI.
 
-WP1 now adds persisted assistant history, bounded multi-turn context, a localized reset, and durable turn/reply delivery recovery; see the [feature specification](features/multi-turn-context-and-durable-delivery.md). The implementation and PostgreSQL integration tests cover cross-burst context, isolation, retries, duplicate events, and worker recovery. Budget enforcement and usage accounting (WP2), web search (WP3), and complete product analytics/alerting remain outstanding. Viber delivery cannot be guaranteed exactly once when a send outcome is ambiguous.
+WP1 adds persisted assistant history, bounded multi-turn context, a localized reset, and durable turn/reply delivery recovery; see the [feature specification](features/multi-turn-context-and-durable-delivery.md). WP2 adds content-free per-attempt accounting, PostgreSQL atomic reservations/reconciliation, per-user and global budget limits, a per-request cost guard, economy mode, and localized denials for the current `cheap_text` route; see [usage accounting and cost controls](features/usage-accounting-and-cost-controls.md). WP3 web search and WP4 complete product analytics/alerting remain outstanding. Web search must pass separately billed tool costs through the shared guard before it is enabled. Viber delivery cannot be guaranteed exactly once when a send outcome is ambiguous.
 
 ## Prioritized work before the first external users
 

@@ -241,21 +241,23 @@ Do not persist images by default.
 
 ## Data
 
-Current PostgreSQL persistence covers users, conversations, inbound events, user/assistant messages, durable conversation-turn/delivery state, delivery callback metadata, and jobs. AI usage/cost accounting and product analytics persistence are still separate roadmap work packages. Do not assume those controls exist merely because they appear in target designs.
+Current PostgreSQL persistence covers users, conversations, inbound events, user/assistant messages, durable conversation-turn/delivery state, delivery callback metadata, jobs, and the content-free `ai_usage_attempts` ledger. `usage_budget_mutex` serializes budget reservations and reconciliation. Minimal product analytics remain a separate roadmap work package.
 
 ## Rate and budget protection
 
-Planned public-launch protection should, before an OpenRouter request:
-1. identify the user
-2. check request limits
-3. check daily user budget
-4. estimate maximum request cost
-5. reserve budget
-6. call the AI Router
-7. record actual cost
-8. release unused reservation
+Every current `cheap_text` provider call goes through the AI Router with a stable internal user ID, conversation ID, durable turn ID, and WP1 generation-attempt number. The router builds the bounded provider messages, reserves a conservative cost bound in PostgreSQL, marks the attempt in-flight, and only then calls OpenRouter. The application enforces:
 
-**Implementation status:** these per-user limits, per-request cost guard, reservations/reconciliation, global daily/monthly budgets, economy mode, and hard ceiling are not enforced by the current application. The AI response feature only enforces per-request input-size, output-token, and timeout limits. Do not treat the architecture list above as implemented controls; close this gap before any external user rollout.
+- Per-user daily provider-attempt count and daily spend.
+- Per-request estimated-cost maximum.
+- Global UTC daily and monthly spend ceilings, including held/uncertain reservations.
+- Economy mode at the configured `AI_ECONOMY_THRESHOLD_PERCENT` (default 80%) of projected global daily/monthly spend (or when lowering the output cap may bring a request under its per-request guard), limiting output to `AI_ECONOMY_MAX_OUTPUT_TOKENS` (default 256) or the normal token cap, whichever is lower.
+- Fail-closed behavior for unknown model pricing and budget denial, with localized user-facing copy.
+
+The content-free `ai_usage_attempts` ledger distinguishes actual, estimated, and unknown costs. OpenRouter usage/cost reporting is requested explicitly. If a response includes actual cost, it is reconciled; if cost is missing but both token counts exist, cost is estimated from the reviewed configured model rates. Missing usage/cost or ambiguous provider outcomes retain a conservative hold instead of silently recording zero. Reservations that expire before entering in-flight can be released; expired in-flight attempts are marked uncertain. Terminal accounting records are retained for 90 days.
+
+Initial configurable defaults are 50 provider attempts per user/day, $0.10 per user/day, $0.01 maximum estimated request cost, $2 global/day, and $30 global/month. The default reviewed `google/gemma-3-4b-it` rates are $0.05/M input tokens and $0.10/M output tokens. A custom model requires a matching `AI_USAGE_PRICING_MODEL` and verified rates or the guard blocks the call. Operators must also configure an OpenRouter account-level spend cap before an external pilot.
+
+The shared accounting contract accepts AI Router route IDs, but web search is not implemented by WP2. WP3 must reserve for any separately billed search/tool costs before the `web` route is enabled. Structured budget and usage events are not a substitute for WP4 alerting or a dashboard.
 
 ## Privacy principles
 
@@ -310,6 +312,7 @@ Railway PostgreSQL is the intended managed production database. The application 
 - PostgreSQL-backed event persistence and jobs.
 - OpenRouter through the internal AI Router.
 - Text-only generation after the existing debounce.
+- PostgreSQL usage accounting and enforced budget reservations for `cheap_text`.
 
 ### Before the first external MVP
 

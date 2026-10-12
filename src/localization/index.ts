@@ -17,6 +17,7 @@ export interface LocalizedTextResponse {
 
 interface LocaleCopy extends LocalizedWelcome {
   aiTemporaryError: string;
+  aiLimitReached: string;
   contextResetConfirmation: string;
 }
 
@@ -47,6 +48,13 @@ export function getAiTemporaryErrorResponse(
 ): LocalizedTextResponse {
   const locale = locales[resolveLocale(language)];
   return { senderName: locale.senderName, text: locale.aiTemporaryError };
+}
+
+export function getAiLimitReachedResponse(
+  language: string | undefined,
+): LocalizedTextResponse {
+  const locale = locales[resolveLocale(language)];
+  return { senderName: locale.senderName, text: locale.aiLimitReached };
 }
 
 export function getContextResetConfirmation(

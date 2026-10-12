@@ -15,6 +15,10 @@ import {
   ConversationWorker,
 } from './job-worker.js';
 import { AiGenerationError } from './ai-router.js';
+import {
+  UsageAccountingService,
+  UsageBudgetError,
+} from './usage-accounting.js';
 import { recordViberDeliveryCallback } from './viber-delivery-callback.js';
 import { acceptViberCallback } from './viber-event-persistence.js';
 
@@ -807,5 +811,570 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       { role: 'user', count: 1 },
     ]);
     expect(sendReply).toHaveBeenCalledTimes(1);
+  });
+
+  describe('usage accounting and cost controls', () => {
+    const budgetConfig = (overrides: Record<string, number | string> = {}) => ({
+      pricingModel: 'google/gemma-3-4b-it',
+      inputPricePerMillionUsd: 0.05,
+      outputPricePerMillionUsd: 0.1,
+      userDailyRequestLimit: 50,
+      userDailyBudgetUsd: 0.1,
+      requestMaxEstimatedCostUsd: 0.01,
+      globalDailyBudgetUsd: 2,
+      globalMonthlyBudgetUsd: 30,
+      economyThresholdPercent: 80,
+      economyMaxOutputTokens: 256,
+      ...overrides,
+    });
+
+    async function createUsageTurn(label: string) {
+      const userResult = await db!.query<{ id: string }>(
+        `INSERT INTO users (provider, provider_user_id)
+         VALUES ('viber', $1) RETURNING id`,
+        [`usage-${label}`],
+      );
+      const userId = userResult.rows[0]!.id;
+      const conversationResult = await db!.query<{ id: string }>(
+        'INSERT INTO conversations (user_id) VALUES ($1) RETURNING id',
+        [userId],
+      );
+      const conversationId = conversationResult.rows[0]!.id;
+      const turnResult = await db!.query<{ id: string }>(
+        `INSERT INTO conversation_turns
+           (conversation_id, start_position, end_position)
+         VALUES ($1, 1, 1) RETURNING id`,
+        [conversationId],
+      );
+      return {
+        userId,
+        conversationId,
+        turnId: turnResult.rows[0]!.id,
+        attemptNumber: 1,
+      };
+    }
+
+    function reservationInput(
+      context: Awaited<ReturnType<typeof createUsageTurn>>,
+      maxOutputTokens = 64,
+    ) {
+      return {
+        ...context,
+        route: 'cheap_text' as const,
+        model: 'google/gemma-3-4b-it',
+        messages: [
+          { role: 'system', content: 'Sofi assistant.' },
+          { role: 'user', content: 'hello' },
+        ],
+        maxOutputTokens,
+      };
+    }
+
+    it('persists an idempotent reservation and reconciles actual cost once', async () => {
+      const context = await createUsageTurn('actual');
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+      const reservation = await accounting.reserve(reservationInput(context));
+
+      expect(reservation.reservedUsd).toBeGreaterThan(0);
+      const reserved = await db!.query<{
+        reservation_state: string;
+        outcome: string;
+        cost_kind: string;
+        initial_reserved_usd: string;
+      }>(
+        `SELECT reservation_state, outcome, cost_kind, initial_reserved_usd::text
+         FROM ai_usage_attempts WHERE turn_id = $1 AND attempt_number = 1`,
+        [context.turnId],
+      );
+      expect(reserved.rows[0]).toMatchObject({
+        reservation_state: 'reserved',
+        outcome: 'reserved',
+        cost_kind: 'unknown',
+      });
+      expect(Number(reserved.rows[0]?.initial_reserved_usd)).toBeGreaterThan(0);
+
+      await accounting.markInFlight(context);
+      await accounting.reconcileSuccess(
+        context,
+        {
+          promptTokens: 10,
+          completionTokens: 5,
+          totalTokens: 15,
+          costUsd: 0.000004,
+        },
+        12,
+        'gen-usage-accounting-test-123',
+      );
+      await accounting.reconcileSuccess(
+        context,
+        { promptTokens: 10, completionTokens: 5, costUsd: 0.0009 },
+        20,
+      );
+
+      const settled = await db!.query<{
+        reservation_state: string;
+        cost_kind: string;
+        provider_cost_usd: string;
+        provider_generation_id: string | null;
+        reserved_usd: string;
+      }>(
+        `SELECT reservation_state, cost_kind, provider_cost_usd::text,
+                provider_generation_id, reserved_usd::text
+         FROM ai_usage_attempts WHERE turn_id = $1 AND attempt_number = 1`,
+        [context.turnId],
+      );
+      expect(settled.rows[0]).toMatchObject({
+        reservation_state: 'settled',
+        cost_kind: 'actual',
+        provider_cost_usd: '0.000004000000',
+        provider_generation_id: 'gen-usage-accounting-test-123',
+      });
+      expect(Number(settled.rows[0]?.reserved_usd)).toBe(0);
+      expect(
+        await db!.query('SELECT id FROM ai_usage_attempts WHERE turn_id = $1', [
+          context.turnId,
+        ]),
+      ).toMatchObject({ rowCount: 1 });
+    });
+
+    it('records an estimated cost when tokens exist but provider cost is missing', async () => {
+      const context = await createUsageTurn('estimated');
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+      await accounting.reserve(reservationInput(context));
+      await accounting.markInFlight(context);
+      await accounting.reconcileSuccess(
+        context,
+        { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+        21,
+      );
+
+      const row = await db!.query<{
+        reservation_state: string;
+        cost_kind: string;
+        estimated_cost_usd: string;
+        provider_cost_usd: string | null;
+        reserved_usd: string;
+      }>(
+        `SELECT reservation_state, cost_kind, estimated_cost_usd::text,
+                provider_cost_usd::text, reserved_usd::text
+         FROM ai_usage_attempts WHERE turn_id = $1`,
+        [context.turnId],
+      );
+      expect(row.rows[0]).toMatchObject({
+        reservation_state: 'settled',
+        cost_kind: 'estimated',
+        provider_cost_usd: null,
+      });
+      expect(Number(row.rows[0]?.estimated_cost_usd)).toBeCloseTo(0.000001);
+      expect(Number(row.rows[0]?.reserved_usd)).toBe(0);
+    });
+
+    it('isolates user budgets so one user does not consume another user allowance', async () => {
+      const first = await createUsageTurn('isolation-a');
+      const second = await createUsageTurn('isolation-b');
+      const accounting = new UsageAccountingService(
+        db!,
+        budgetConfig({ userDailyBudgetUsd: 0.00002 }),
+      );
+
+      await accounting.reserve(reservationInput(first));
+      await expect(
+        accounting.reserve(reservationInput(second)),
+      ).resolves.toMatchObject({ economyMode: false });
+      const rows = await db!.query<{ count: number }>(
+        'SELECT COUNT(*)::int AS count FROM ai_usage_attempts',
+      );
+      expect(rows.rows[0]?.count).toBe(2);
+    });
+
+    it('releases a known failed attempt idempotently', async () => {
+      const context = await createUsageTurn('known-failure');
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+      await accounting.reserve(reservationInput(context));
+      await accounting.markInFlight(context);
+
+      await accounting.markKnownFailure(context, 'http_401', 18);
+      await accounting.markKnownFailure(context, 'http_401', 22);
+
+      const row = await db!.query<{
+        reservation_state: string;
+        outcome: string;
+        failure_category: string;
+        reserved_usd: string;
+      }>(
+        `SELECT reservation_state, outcome, failure_category, reserved_usd::text
+         FROM ai_usage_attempts WHERE turn_id = $1`,
+        [context.turnId],
+      );
+      expect(row.rows[0]).toMatchObject({
+        reservation_state: 'released',
+        outcome: 'failure',
+        failure_category: 'http_401',
+      });
+      expect(Number(row.rows[0]?.reserved_usd)).toBe(0);
+    });
+
+    it('keeps ambiguous timeout spend held even after a later release attempt', async () => {
+      const context = await createUsageTurn('ambiguous-timeout');
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+      const reservation = await accounting.reserve(reservationInput(context));
+      await accounting.markInFlight(context);
+
+      await accounting.markAmbiguousFailure(context, 'timeout', 30);
+      await accounting.markKnownFailure(context, 'timeout', 31);
+
+      const row = await db!.query<{
+        reservation_state: string;
+        cost_kind: string;
+        reserved_usd: string;
+      }>(
+        `SELECT reservation_state, cost_kind, reserved_usd::text
+         FROM ai_usage_attempts WHERE turn_id = $1`,
+        [context.turnId],
+      );
+      expect(row.rows[0]).toMatchObject({
+        reservation_state: 'uncertain',
+        cost_kind: 'unknown',
+      });
+      expect(Number(row.rows[0]?.reserved_usd)).toBeCloseTo(
+        reservation.reservedUsd,
+      );
+    });
+
+    it('records a retry as a separate provider attempt for the same turn', async () => {
+      const firstAttempt = await createUsageTurn('attempt-retry');
+      const secondAttempt = {
+        ...firstAttempt,
+        attemptNumber: 2,
+      };
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+      await accounting.reserve(reservationInput(firstAttempt));
+      await accounting.markInFlight(firstAttempt);
+      await accounting.markAmbiguousFailure(firstAttempt, 'network', 35);
+
+      await accounting.reserve(reservationInput(secondAttempt));
+      await accounting.markInFlight(secondAttempt);
+      await accounting.reconcileSuccess(
+        secondAttempt,
+        { promptTokens: 12, completionTokens: 6, costUsd: 0.000002 },
+        20,
+      );
+
+      const rows = await db!.query<{
+        attempt_number: number;
+        reservation_state: string;
+        outcome: string;
+      }>(
+        `SELECT attempt_number, reservation_state, outcome
+         FROM ai_usage_attempts WHERE turn_id = $1 ORDER BY attempt_number`,
+        [firstAttempt.turnId],
+      );
+      expect(rows.rows).toEqual([
+        {
+          attempt_number: 1,
+          reservation_state: 'uncertain',
+          outcome: 'failure',
+        },
+        { attempt_number: 2, reservation_state: 'settled', outcome: 'success' },
+      ]);
+    });
+
+    it('keeps usage records and operational events free of user content', async () => {
+      const context = await createUsageTurn('privacy');
+      const records: Array<Record<string, string | number | boolean>> = [];
+      const accounting = new UsageAccountingService(db!, budgetConfig(), {
+        info: (record) => records.push(record),
+        error: (record) => records.push(record),
+      });
+      const privateText = 'PII-NEVER-PERSIST-OR-LOG-9fb2';
+      await accounting.reserve({
+        ...reservationInput(context),
+        messages: [{ role: 'user', content: privateText }],
+      });
+
+      expect(JSON.stringify(records)).not.toContain(privateText);
+      const columns = await db!.query<{ column_name: string }>(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_name = 'ai_usage_attempts'`,
+      );
+      const columnNames = columns.rows.map((row) => row.column_name);
+      expect(columnNames).not.toContain('content');
+      expect(columnNames).not.toContain('messages');
+      expect(columnNames).not.toContain('prompt_text');
+      expect(columnNames).not.toContain('completion_text');
+    });
+
+    it('recovers a durable reservation through a new accounting service instance', async () => {
+      const context = await createUsageTurn('service-restart');
+      const beforeRestart = new UsageAccountingService(db!, budgetConfig());
+      const reservation = await beforeRestart.reserve(
+        reservationInput(context),
+      );
+
+      const afterRestart = new UsageAccountingService(db!, budgetConfig());
+      await afterRestart.markInFlight(context);
+      await afterRestart.reconcileSuccess(
+        context,
+        {
+          promptTokens: 21,
+          completionTokens: 9,
+          totalTokens: 30,
+          costUsd: 0.000003,
+        },
+        24,
+      );
+
+      const row = await db!.query<{
+        reservation_state: string;
+        cost_kind: string;
+        provider_cost_usd: string;
+        reserved_usd: string;
+      }>(
+        `SELECT reservation_state, cost_kind, provider_cost_usd::text, reserved_usd::text
+         FROM ai_usage_attempts WHERE turn_id = $1 AND attempt_number = 1`,
+        [context.turnId],
+      );
+      expect(row.rows[0]).toMatchObject({
+        reservation_state: 'settled',
+        cost_kind: 'actual',
+        provider_cost_usd: '0.000003000000',
+      });
+      expect(Number(row.rows[0]?.reserved_usd)).toBe(0);
+      expect(reservation.reservationId).toBeTruthy();
+    });
+
+    it('keeps a conservative hold when successful provider usage and cost are missing', async () => {
+      const context = await createUsageTurn('unknown');
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+      const reservation = await accounting.reserve(reservationInput(context));
+      await accounting.markInFlight(context);
+      await accounting.reconcileSuccess(context, undefined, 42);
+
+      const row = await db!.query<{
+        reservation_state: string;
+        cost_kind: string;
+        reserved_usd: string;
+      }>(
+        `SELECT reservation_state, cost_kind, reserved_usd::text
+         FROM ai_usage_attempts WHERE turn_id = $1`,
+        [context.turnId],
+      );
+      expect(row.rows[0]).toMatchObject({
+        reservation_state: 'uncertain',
+        cost_kind: 'unknown',
+      });
+      expect(Number(row.rows[0]?.reserved_usd)).toBeCloseTo(
+        reservation.reservedUsd,
+      );
+    });
+
+    it('fails closed when model pricing is not configured', async () => {
+      const context = await createUsageTurn('unknown-model');
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+      await expect(
+        accounting.reserve({
+          ...reservationInput(context),
+          model: 'unlisted/model',
+        }),
+      ).rejects.toMatchObject({
+        reason: 'pricing_unavailable',
+      });
+      const rows = await db!.query(
+        'SELECT id FROM ai_usage_attempts WHERE turn_id = $1',
+        [context.turnId],
+      );
+      expect(rows.rowCount).toBe(0);
+    });
+
+    it('enforces per-user request count before creating another reservation', async () => {
+      const first = await createUsageTurn('rate-limit-a');
+      const secondTurn = await db!.query<{ id: string }>(
+        `INSERT INTO conversation_turns
+           (conversation_id, start_position, end_position)
+         VALUES ($1, 2, 2) RETURNING id`,
+        [first.conversationId],
+      );
+      const second = {
+        ...first,
+        turnId: secondTurn.rows[0]!.id,
+        attemptNumber: 1,
+      };
+      const accounting = new UsageAccountingService(
+        db!,
+        budgetConfig({ userDailyRequestLimit: 1 }),
+      );
+      await accounting.reserve(reservationInput(first));
+      await expect(
+        accounting.reserve(reservationInput(second)),
+      ).rejects.toMatchObject({
+        reason: 'request_rate_limit',
+      });
+      const rows = await db!.query<{ count: number }>(
+        'SELECT COUNT(*)::int AS count FROM ai_usage_attempts WHERE user_id = $1',
+        [first.userId],
+      );
+      expect(rows.rows[0]?.count).toBe(1);
+    });
+
+    it('serializes concurrent reservations against the same global daily ceiling', async () => {
+      const first = await createUsageTurn('global-race-a');
+      const second = await createUsageTurn('global-race-b');
+      const accounting = new UsageAccountingService(
+        db!,
+        budgetConfig({
+          globalDailyBudgetUsd: 0.00002,
+          globalMonthlyBudgetUsd: 1,
+        }),
+      );
+
+      const results = await Promise.allSettled([
+        accounting.reserve(reservationInput(first, 100)),
+        accounting.reserve(reservationInput(second, 100)),
+      ]);
+      expect(
+        results.filter((result) => result.status === 'fulfilled'),
+      ).toHaveLength(1);
+      const rejected = results.find((result) => result.status === 'rejected');
+      expect(rejected?.status).toBe('rejected');
+      if (!rejected || rejected.status !== 'rejected') {
+        throw new Error('Expected one concurrent reservation to be rejected');
+      }
+      expect(rejected.reason).toBeInstanceOf(UsageBudgetError);
+      expect((rejected.reason as UsageBudgetError).reason).toBe(
+        'global_daily_budget',
+      );
+      const rows = await db!.query<{ count: number }>(
+        'SELECT COUNT(*)::int AS count FROM ai_usage_attempts',
+      );
+      expect(rows.rows[0]?.count).toBe(1);
+    });
+
+    it('rejects an over-cost request before provider invocation and does not duplicate attempts', async () => {
+      const context = await createUsageTurn('request-cost-limit');
+      const accounting = new UsageAccountingService(
+        db!,
+        budgetConfig({ requestMaxEstimatedCostUsd: 0.000001 }),
+      );
+      await expect(
+        accounting.reserve(reservationInput(context, 512)),
+      ).rejects.toMatchObject({ reason: 'request_cost_limit' });
+      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject(
+        {
+          rowCount: 0,
+        },
+      );
+    });
+
+    it('enforces per-user daily spending independently of the global budget', async () => {
+      const context = await createUsageTurn('user-daily-budget');
+      const accounting = new UsageAccountingService(
+        db!,
+        budgetConfig({ userDailyBudgetUsd: 0.00001 }),
+      );
+
+      await expect(
+        accounting.reserve(reservationInput(context, 100)),
+      ).rejects.toMatchObject({ reason: 'user_daily_budget' });
+      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject(
+        {
+          rowCount: 0,
+        },
+      );
+    });
+
+    it('enforces the global monthly ceiling', async () => {
+      const context = await createUsageTurn('global-monthly-budget');
+      const accounting = new UsageAccountingService(
+        db!,
+        budgetConfig({
+          globalDailyBudgetUsd: 2,
+          globalMonthlyBudgetUsd: 0.00001,
+        }),
+      );
+
+      await expect(
+        accounting.reserve(reservationInput(context, 100)),
+      ).rejects.toMatchObject({ reason: 'global_monthly_budget' });
+      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject(
+        {
+          rowCount: 0,
+        },
+      );
+    });
+
+    it('returns a localized message when the worker is blocked by a budget guard', async () => {
+      const accepted = await acceptText(
+        'Please answer later.',
+        'token-budget-locale',
+        'budget-locale-user',
+        'en',
+      );
+      await makeJobReady(accepted.conversationId);
+      const sent: string[] = [];
+      const worker = new ConversationWorker(db!, {
+        generateReply: vi
+          .fn()
+          .mockRejectedValue(new UsageBudgetError('user_daily_budget')),
+        sendReply: vi.fn(async ({ text }: { text: string }) => {
+          sent.push(text);
+          return { messageToken: 'out-budget-locale' };
+        }),
+      });
+
+      await runGeneratedAndDelivered(worker);
+
+      expect(sent).toEqual([
+        'I can’t process a new request right now. Please try again a little later.',
+      ]);
+      const turn = await db!.query<{
+        generation_status: string;
+        delivery_status: string;
+      }>(
+        'SELECT generation_status, delivery_status FROM conversation_turns WHERE conversation_id = $1',
+        [accepted.conversationId],
+      );
+      expect(turn.rows).toEqual([
+        { generation_status: 'failed', delivery_status: 'accepted' },
+      ]);
+    });
+
+    it('releases an expired pre-call reservation but preserves expired in-flight ambiguity', async () => {
+      const expiredReserved = await createUsageTurn('expiry-reserved');
+      const expiredInflight = await createUsageTurn('expiry-inflight');
+      const next = await createUsageTurn('expiry-next');
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+      await accounting.reserve(reservationInput(expiredReserved));
+      await accounting.reserve(reservationInput(expiredInflight));
+      await accounting.markInFlight(expiredInflight);
+      await db!.query(
+        `UPDATE ai_usage_attempts SET started_at = NOW() - INTERVAL '11 minutes'
+         WHERE turn_id IN ($1, $2)`,
+        [expiredReserved.turnId, expiredInflight.turnId],
+      );
+
+      await accounting.reserve(reservationInput(next));
+      await expect(accounting.markInFlight(expiredReserved)).rejects.toThrow(
+        'usage_reservation_transition_failed',
+      );
+      const rows = await db!.query<{
+        turn_id: string;
+        reservation_state: string;
+        reserved_usd: string;
+      }>(
+        `SELECT turn_id, reservation_state, reserved_usd::text
+         FROM ai_usage_attempts WHERE turn_id IN ($1, $2) ORDER BY turn_id`,
+        [expiredReserved.turnId, expiredInflight.turnId],
+      );
+      const released = rows.rows.find(
+        (row) => row.turn_id === expiredReserved.turnId,
+      );
+      const uncertain = rows.rows.find(
+        (row) => row.turn_id === expiredInflight.turnId,
+      );
+      expect(released?.reservation_state).toBe('released');
+      expect(Number(released?.reserved_usd)).toBe(0);
+      expect(uncertain?.reservation_state).toBe('uncertain');
+      expect(Number(uncertain?.reserved_usd)).toBeGreaterThan(0);
+    });
   });
 });

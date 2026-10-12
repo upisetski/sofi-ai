@@ -9,6 +9,7 @@ import { createOpenRouterClient } from './client.js';
 function successResponse() {
   return new Response(
     JSON.stringify({
+      id: 'gen-openrouter-test-123',
       choices: [{ message: { role: 'assistant', content: 'Hello from Sofi' } }],
       usage: {
         prompt_tokens: 18,
@@ -44,6 +45,7 @@ describe('OpenRouter client', () => {
 
     await expect(client.generate(request)).resolves.toEqual({
       text: 'Hello from Sofi',
+      providerGenerationId: 'gen-openrouter-test-123',
       usage: {
         promptTokens: 18,
         completionTokens: 7,
@@ -65,6 +67,55 @@ describe('OpenRouter client', () => {
       max_tokens: 512,
     });
     expect(init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('preserves a successful response when the provider omits usage metadata', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            { message: { role: 'assistant', content: 'No usage metadata' } },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    const client = createOpenRouterClient({
+      apiKey: 'test-openrouter-secret',
+      fetchImpl,
+    });
+
+    await expect(client.generate(request)).resolves.toEqual({
+      text: 'No usage metadata',
+    });
+  });
+
+  it('keeps only valid non-negative numeric usage fields', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            { message: { role: 'assistant', content: 'Partial usage' } },
+          ],
+          usage: {
+            prompt_tokens: 18.5,
+            completion_tokens: -1,
+            total_tokens: 0,
+            cost: '0.5',
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    const client = createOpenRouterClient({
+      apiKey: 'test-openrouter-secret',
+      fetchImpl,
+    });
+
+    await expect(client.generate(request)).resolves.toEqual({
+      text: 'Partial usage',
+      usage: { totalTokens: 0 },
+    });
   });
 
   it('includes a sanitized OpenRouter error summary without logging the raw body', async () => {

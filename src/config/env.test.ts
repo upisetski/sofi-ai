@@ -65,6 +65,43 @@ describe('environment configuration', () => {
     expect(config.AI_MODEL_CHEAP_TEXT).toBe('google/gemma-3-4b-it');
     expect(config.AI_MAX_OUTPUT_TOKENS).toBe(512);
     expect(config.AI_REQUEST_TIMEOUT_MS).toBe(30000);
+    expect(config.AI_USAGE_PRICING_MODEL).toBe('google/gemma-3-4b-it');
+    expect(config.AI_USER_DAILY_REQUEST_LIMIT).toBe(50);
+    expect(config.AI_USER_DAILY_BUDGET_USD).toBe(0.1);
+    expect(config.AI_REQUEST_MAX_ESTIMATED_COST_USD).toBe(0.01);
+    expect(config.AI_GLOBAL_DAILY_BUDGET_USD).toBe(2);
+    expect(config.AI_GLOBAL_MONTHLY_BUDGET_USD).toBe(30);
+    expect(config.AI_ECONOMY_MAX_OUTPUT_TOKENS).toBe(256);
+  });
+
+  it('rejects invalid budget and price configuration', () => {
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_USER_DAILY_REQUEST_LIMIT: '0' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_GLOBAL_DAILY_BUDGET_USD: '-1' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_ECONOMY_THRESHOLD_PERCENT: '100' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_ECONOMY_MAX_OUTPUT_TOKENS: '0' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_USAGE_INPUT_PRICE_PER_MILLION_USD: '0' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD: '0' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_GLOBAL_DAILY_BUDGET_USD: 'Infinity' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({
+        ...baseEnv,
+        AI_USAGE_INPUT_PRICE_PER_MILLION_USD: 'Infinity',
+      }),
+    ).toThrow();
   });
 
   it('rejects unreasonable output-token and timeout limits', () => {
