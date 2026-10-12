@@ -21,7 +21,7 @@ const usageAccounting = new UsageAccountingService(db, {
   globalDailyBudgetUsd: env.AI_GLOBAL_DAILY_BUDGET_USD,
   globalMonthlyBudgetUsd: env.AI_GLOBAL_MONTHLY_BUDGET_USD,
   economyThresholdPercent: env.AI_ECONOMY_THRESHOLD_PERCENT,
-  economyMaxOutputTokens: 256,
+  economyMaxOutputTokens: env.AI_ECONOMY_MAX_OUTPUT_TOKENS,
 });
 const viberClient = createViberClient({ authToken: env.VIBER_AUTH_TOKEN });
 const aiRouter = env.AI_ENABLED
