@@ -928,6 +928,56 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
         .toMatchObject({ rowCount: 1 });
     });
 
+    it('records an estimated cost when tokens exist but provider cost is missing', async () => {
+      const context = await createUsageTurn('estimated');
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+      await accounting.reserve(reservationInput(context));
+      await accounting.markInFlight(context);
+      await accounting.reconcileSuccess(
+        context,
+        { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+        21,
+      );
+
+      const row = await db!.query<{
+        reservation_state: string;
+        cost_kind: string;
+        estimated_cost_usd: string;
+        provider_cost_usd: string | null;
+        reserved_usd: string;
+      }>(
+        `SELECT reservation_state, cost_kind, estimated_cost_usd::text,
+                provider_cost_usd::text, reserved_usd::text
+         FROM ai_usage_attempts WHERE turn_id = $1`,
+        [context.turnId],
+      );
+      expect(row.rows[0]).toMatchObject({
+        reservation_state: 'settled',
+        cost_kind: 'estimated',
+        provider_cost_usd: null,
+      });
+      expect(Number(row.rows[0]?.estimated_cost_usd)).toBeCloseTo(0.000001);
+      expect(Number(row.rows[0]?.reserved_usd)).toBe(0);
+    });
+
+    it('isolates user budgets so one user does not consume another user allowance', async () => {
+      const first = await createUsageTurn('isolation-a');
+      const second = await createUsageTurn('isolation-b');
+      const accounting = new UsageAccountingService(
+        db!,
+        budgetConfig({ userDailyBudgetUsd: 0.00002 }),
+      );
+
+      await accounting.reserve(reservationInput(first));
+      await expect(
+        accounting.reserve(reservationInput(second)),
+      ).resolves.toMatchObject({ economyMode: false });
+      const rows = await db!.query<{ count: number }>(
+        'SELECT COUNT(*)::int AS count FROM ai_usage_attempts',
+      );
+      expect(rows.rows[0]?.count).toBe(2);
+    });
+
     it('keeps a conservative hold when successful provider usage and cost are missing', async () => {
       const context = await createUsageTurn('unknown');
       const accounting = new UsageAccountingService(db!, budgetConfig());
