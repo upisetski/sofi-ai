@@ -4,7 +4,7 @@ import {
   type UsageAttemptContext,
 } from './usage-accounting.js';
 
-export type AiRoute = 'cheap_text';
+export type AiRoute = 'cheap_text' | 'web';
 
 export interface AiContextMessage {
   role: 'user' | 'assistant';
