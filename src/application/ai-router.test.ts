@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { UsageAccountingService, UsageBudgetError } from './usage-accounting.js';
+import {
+  UsageAccountingService,
+  UsageBudgetError,
+} from './usage-accounting.js';
 
 import {
   AiGenerationError,
@@ -243,9 +246,7 @@ describe('AI Router', () => {
     expect(JSON.stringify(records)).not.toContain('private prompt text');
   });
 
-  it(
-    'never calls the provider when the shared budget guard rejects an attempt',
-    async () => {
+  it('never calls the provider when the shared budget guard rejects an attempt', async () => {
     const generate = vi.fn();
     const accounting = {
       reserve: vi
@@ -274,8 +275,7 @@ describe('AI Router', () => {
 
     expect(accounting.reserve).toHaveBeenCalledTimes(1);
     expect(generate).not.toHaveBeenCalled();
-    },
-  );
+  });
 
   it('reports a missing route model as a configuration error', async () => {
     const logger = { info: vi.fn(), error: vi.fn() };
