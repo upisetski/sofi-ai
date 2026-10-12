@@ -166,8 +166,8 @@ export class UsageAccountingService {
 
       const threshold = this.config.economyThresholdPercent / 100;
       const enteringEconomy =
-        globalDaySpend / this.config.globalDailyBudgetUsd >= threshold ||
-        globalMonthSpend / this.config.globalMonthlyBudgetUsd >= threshold ||
+        (globalDaySpend + normalEstimate) / this.config.globalDailyBudgetUsd >= threshold ||
+        (globalMonthSpend + normalEstimate) / this.config.globalMonthlyBudgetUsd >= threshold ||
         normalEstimate > this.config.requestMaxEstimatedCostUsd;
       if (enteringEconomy) {
         effectiveMaxOutputTokens = Math.min(
@@ -380,7 +380,7 @@ export class UsageAccountingService {
           `UPDATE ai_usage_attempts
            SET completed_at = NOW(), duration_ms = $3, outcome = 'success',
                prompt_tokens = $4, completion_tokens = $5, total_tokens = $6,
-               reserved_usd = 0, cost_kind = 'unknown', cost_provenance = 'provider_usage_missing',
+               cost_kind = 'unknown', cost_provenance = 'provider_usage_missing',
                reservation_state = 'uncertain', failure_category = 'usage_missing'
            WHERE turn_id = $1 AND attempt_number = $2
              AND reservation_state = 'in_flight'`,
