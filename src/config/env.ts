@@ -32,11 +32,11 @@ export const envSchema = z
     AI_USAGE_PRICING_MODEL: z.string().min(1).default('google/gemma-3-4b-it'),
     AI_USAGE_INPUT_PRICE_PER_MILLION_USD: z.coerce
       .number()
-      .nonnegative()
+      .positive()
       .default(0.05),
     AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD: z.coerce
       .number()
-      .nonnegative()
+      .positive()
       .default(0.1),
     AI_USER_DAILY_REQUEST_LIMIT: z.coerce.number().int().positive().default(50),
     AI_USER_DAILY_BUDGET_USD: z.coerce.number().positive().default(0.1),
