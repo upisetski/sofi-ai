@@ -1,7 +1,7 @@
 import { resolveLocale } from '../localization/index.js';
-import {
+import type {
   UsageAccountingService,
-  type UsageAttemptContext,
+  UsageAttemptContext,
 } from './usage-accounting.js';
 
 export type AiRoute = 'cheap_text' | 'web';
