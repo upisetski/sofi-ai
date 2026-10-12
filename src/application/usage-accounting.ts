@@ -202,9 +202,9 @@ export class UsageAccountingService {
         `INSERT INTO ai_usage_attempts (
            user_id, conversation_id, turn_id, attempt_number, route, model,
            started_at, outcome, cost_kind, cost_provenance, reserved_usd,
-           reservation_state, prompt_estimated_tokens
+           reservation_state, initial_reserved_usd, prompt_estimated_tokens
          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'in_flight', 'unknown',
-                   'conservative_character_bound', $7, 'reserved', $8)
+                   'conservative_character_bound', $7, 'reserved', $7, $8)
          ON CONFLICT (turn_id, attempt_number) DO NOTHING
          RETURNING id`,
         [
