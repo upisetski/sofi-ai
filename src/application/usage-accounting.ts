@@ -393,14 +393,41 @@ export class UsageAccountingService {
       }
     });
 
+    const costKind = actualCost !== undefined && Number.isFinite(actualCost) && actualCost >= 0
+      ? 'actual'
+      : hasTokens ? 'estimated' : 'unknown';
+    if (costKind === 'unknown') {
+      this.logger.error({
+        event: 'ai_usage_provider_data_missing',
+        turnId: context.turnId,
+        attempt: context.attemptNumber,
+        category: 'usage_and_cost_missing',
+      });
+      this.logger.error({
+        event: 'ai_usage_reconciliation_incomplete',
+        turnId: context.turnId,
+        attempt: context.attemptNumber,
+        category: 'unknown_cost_retains_reservation',
+      });
+    } else {
+      this.logger.info({
+        event: 'ai_usage_reservation_adjusted',
+        turnId: context.turnId,
+        attempt: context.attemptNumber,
+        costKind,
+      });
+      this.logger.info({
+        event: 'ai_usage_reservation_released',
+        turnId: context.turnId,
+        attempt: context.attemptNumber,
+        reason: 'usage_reconciled',
+      });
+    }
     this.logger.info({
       event: 'ai_usage_reconciled',
       turnId: context.turnId,
       attempt: context.attemptNumber,
-      costKind:
-        actualCost !== undefined && Number.isFinite(actualCost) && actualCost >= 0
-          ? 'actual'
-          : hasTokens ? 'estimated' : 'unknown',
+      costKind,
       ...(actualCost !== undefined && Number.isFinite(actualCost) && actualCost >= 0
         ? { costUsd: actualCost }
         : {}),
@@ -450,7 +477,9 @@ export class UsageAccountingService {
     this.logger.info({
       event: reason === 'global_daily_budget' || reason === 'global_monthly_budget'
         ? 'ai_global_budget_ceiling_reached'
-        : 'ai_budget_guard_rejected',
+        : reason === 'request_rate_limit' || reason === 'user_daily_budget'
+          ? 'ai_user_limit_reached'
+          : 'ai_budget_guard_rejected',
       turnId: input.turnId,
       route: input.route,
       model: input.model,
