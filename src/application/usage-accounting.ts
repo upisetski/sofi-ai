@@ -80,7 +80,7 @@ function money(value: number): number {
 function estimatedPromptTokens(
   messages: Array<{ role: string; content: string }>,
 ): number {
-  // Conservative guard, not a tokenizer: 8 tokens per UTF-16 code unit plus
+  // Conservative guard, not an exact tokenizer: 8 tokens per UTF-16 code unit plus
   // per-message overhead. Prices are pinned by model and reviewed by operators.
   const codeUnits = messages.reduce(
     (total, message) => total + message.content.length,
