@@ -228,9 +228,11 @@ function parseCompletion(
   } = {};
 
   if (isRecord(payload.usage)) {
-    const promptTokens = nonNegativeNumber(payload.usage.prompt_tokens);
-    const completionTokens = nonNegativeNumber(payload.usage.completion_tokens);
-    const totalTokens = nonNegativeNumber(payload.usage.total_tokens);
+    const promptTokens = nonNegativeInteger(payload.usage.prompt_tokens);
+    const completionTokens = nonNegativeInteger(
+      payload.usage.completion_tokens,
+    );
+    const totalTokens = nonNegativeInteger(payload.usage.total_tokens);
     const costUsd = nonNegativeNumber(payload.usage.cost);
     if (promptTokens !== undefined) usage.promptTokens = promptTokens;
     if (completionTokens !== undefined)
@@ -297,6 +299,14 @@ function safeProviderIdentifier(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function nonNegativeInteger(value: unknown): number | undefined {
+  return typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= 0
+    ? value
+    : undefined;
 }
 
 function nonNegativeNumber(value: unknown): number | undefined {
