@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { UsageAccountingService, UsageBudgetError } from './usage-accounting.js';
 
 import {
   AiGenerationError,
@@ -240,6 +241,30 @@ describe('AI Router', () => {
       }),
     );
     expect(JSON.stringify(records)).not.toContain('private prompt text');
+  });
+
+  it('never calls the provider when the shared budget guard rejects an attempt', async () => {
+    const generate = vi.fn();
+    const accounting = {
+      reserve: vi.fn().mockRejectedValue(new UsageBudgetError('global_daily_budget')),
+    } as unknown as UsageAccountingService;
+    const router = createAiRouter(config, { generate }, { info: vi.fn(), error: vi.fn() }, accounting);
+
+    await expect(
+      router.generate({
+        route: 'cheap_text',
+        messages: ['do not make a paid call'],
+        usageContext: {
+          userId: '1',
+          conversationId: '2',
+          turnId: '3',
+          attemptNumber: 1,
+        },
+      }),
+    ).rejects.toBeInstanceOf(UsageBudgetError);
+
+    expect(accounting.reserve).toHaveBeenCalledTimes(1);
+    expect(generate).not.toHaveBeenCalled();
   });
 
   it('reports a missing route model as a configuration error', async () => {
