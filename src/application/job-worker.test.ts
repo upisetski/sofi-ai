@@ -832,7 +832,7 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       const userResult = await db!.query<{ id: string }>(
         `INSERT INTO users (provider, provider_user_id)
          VALUES ('viber', $1) RETURNING id`,
-        [`usage-${label}-${Date.now()}-${Math.random()}`],
+        [`usage-${label}`],
       );
       const userId = userResult.rows[0]!.id;
       const conversationResult = await db!.query<{ id: string }>(
@@ -922,8 +922,8 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
         reservation_state: 'settled',
         cost_kind: 'actual',
         provider_cost_usd: '0.000004000000',
-        reserved_usd: '0',
       });
+      expect(Number(settled.rows[0]?.reserved_usd)).toBe(0);
       expect(await db!.query('SELECT id FROM ai_usage_attempts WHERE turn_id = $1', [context.turnId]))
         .toMatchObject({ rowCount: 1 });
     });
@@ -959,7 +959,7 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
           ...reservationInput(context),
           model: 'unlisted/model',
         }),
-      ).rejects.toMatchObject<Partial<UsageBudgetError>>({
+      ).rejects.toMatchObject({
         reason: 'pricing_unavailable',
       });
       const rows = await db!.query(
