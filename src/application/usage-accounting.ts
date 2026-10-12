@@ -155,12 +155,29 @@ export class UsageAccountingService {
 
     return withTransaction(this.db, async (client) => {
       await client.query(mutexSql);
-      await client.query('SELECT id FROM usage_budget_mutex WHERE id = 1 FOR UPDATE');
+      await client.query(
+        'SELECT id FROM usage_budget_mutex WHERE id = 1 FOR UPDATE',
+      );
       await this.recoverExpiredReservations(client);
 
-      const userDaySpend = await countedSpend(client, 'user', input.userId, 'day');
-      const globalDaySpend = await countedSpend(client, 'global', undefined, 'day');
-      const globalMonthSpend = await countedSpend(client, 'global', undefined, 'month');
+      const userDaySpend = await countedSpend(
+        client,
+        'user',
+        input.userId,
+        'day',
+      );
+      const globalDaySpend = await countedSpend(
+        client,
+        'global',
+        undefined,
+        'day',
+      );
+      const globalMonthSpend = await countedSpend(
+        client,
+        'global',
+        undefined,
+        'month',
+      );
       const recentAttempts = await client.query<{ count: string }>(
         `SELECT COUNT(*)::text AS count FROM ai_usage_attempts
          WHERE user_id = $1
@@ -177,8 +194,7 @@ export class UsageAccountingService {
 
       const threshold = this.config.economyThresholdPercent / 100;
       const enteringEconomy =
-        (globalDaySpend + normalEstimate) /
-          this.config.globalDailyBudgetUsd >=
+        (globalDaySpend + normalEstimate) / this.config.globalDailyBudgetUsd >=
           threshold ||
         (globalMonthSpend + normalEstimate) /
           this.config.globalMonthlyBudgetUsd >=
@@ -200,20 +216,20 @@ export class UsageAccountingService {
         this.logRejection(input, 'request_cost_limit');
         throw new UsageBudgetError('request_cost_limit');
       }
-      if (
-        userDaySpend + reservationEstimate > this.config.userDailyBudgetUsd
-      ) {
+      if (userDaySpend + reservationEstimate > this.config.userDailyBudgetUsd) {
         this.logRejection(input, 'user_daily_budget');
         throw new UsageBudgetError('user_daily_budget');
       }
       if (
-        globalDaySpend + reservationEstimate > this.config.globalDailyBudgetUsd
+        globalDaySpend + reservationEstimate >
+        this.config.globalDailyBudgetUsd
       ) {
         this.logRejection(input, 'global_daily_budget');
         throw new UsageBudgetError('global_daily_budget');
       }
       if (
-        globalMonthSpend + reservationEstimate > this.config.globalMonthlyBudgetUsd
+        globalMonthSpend + reservationEstimate >
+        this.config.globalMonthlyBudgetUsd
       ) {
         this.logRejection(input, 'global_monthly_budget');
         throw new UsageBudgetError('global_monthly_budget');
@@ -302,7 +318,12 @@ export class UsageAccountingService {
              reserved_usd = 0, cost_kind = 'unknown'
          WHERE turn_id = $1 AND attempt_number = $2
            AND reservation_state = 'in_flight'`,
-        [context.turnId, context.attemptNumber, Math.max(0, durationMs), category],
+        [
+          context.turnId,
+          context.attemptNumber,
+          Math.max(0, durationMs),
+          category,
+        ],
       );
     });
     this.logger.info({
@@ -357,7 +378,11 @@ export class UsageAccountingService {
       await client.query(mutexSql);
       await client.query('SELECT id FROM usage_budget_mutex WHERE id = 1 FOR UPDATE');
 
-      if (actualCost !== undefined && Number.isFinite(actualCost) && actualCost >= 0) {
+      if (
+        actualCost !== undefined &&
+        Number.isFinite(actualCost) &&
+        actualCost >= 0
+      ) {
         await client.query(
           `UPDATE ai_usage_attempts
            SET completed_at = NOW(), duration_ms = $3, outcome = 'success',
@@ -368,9 +393,13 @@ export class UsageAccountingService {
            WHERE turn_id = $1 AND attempt_number = $2
              AND reservation_state = 'in_flight'`,
           [
-            context.turnId, context.attemptNumber, Math.max(0, durationMs),
-            usage?.promptTokens ?? null, usage?.completionTokens ?? null,
-            usage?.totalTokens ?? null, actualCost,
+            context.turnId,
+            context.attemptNumber,
+            Math.max(0, durationMs),
+            usage?.promptTokens ?? null,
+            usage?.completionTokens ?? null,
+            usage?.totalTokens ?? null,
+            actualCost,
           ],
         );
       } else if (hasTokens) {
@@ -389,9 +418,13 @@ export class UsageAccountingService {
            WHERE turn_id = $1 AND attempt_number = $2
              AND reservation_state = 'in_flight'`,
           [
-            context.turnId, context.attemptNumber, Math.max(0, durationMs),
-            usage?.promptTokens ?? null, usage?.completionTokens ?? null,
-            usage?.totalTokens ?? null, estimate,
+            context.turnId,
+            context.attemptNumber,
+            Math.max(0, durationMs),
+            usage?.promptTokens ?? null,
+            usage?.completionTokens ?? null,
+            usage?.totalTokens ?? null,
+            estimate,
           ],
         );
       } else {
@@ -406,8 +439,11 @@ export class UsageAccountingService {
            WHERE turn_id = $1 AND attempt_number = $2
              AND reservation_state = 'in_flight'`,
           [
-            context.turnId, context.attemptNumber, Math.max(0, durationMs),
-            usage?.promptTokens ?? null, usage?.completionTokens ?? null,
+            context.turnId,
+            context.attemptNumber,
+            Math.max(0, durationMs),
+            usage?.promptTokens ?? null,
+            usage?.completionTokens ?? null,
             usage?.totalTokens ?? null,
           ],
         );
@@ -415,9 +451,7 @@ export class UsageAccountingService {
     });
 
     const costKind =
-      actualCost !== undefined &&
-      Number.isFinite(actualCost) &&
-      actualCost >= 0
+      actualCost !== undefined && Number.isFinite(actualCost) && actualCost >= 0
         ? 'actual'
         : hasTokens
           ? 'estimated'
