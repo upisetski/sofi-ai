@@ -878,15 +878,17 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       expect(reservation.reservedUsd).toBeGreaterThan(0);
       const reserved = await db!.query<{
         reservation_state: string;
+        outcome: string;
         cost_kind: string;
         initial_reserved_usd: string;
       }>(
-        `SELECT reservation_state, cost_kind, initial_reserved_usd::text
+        `SELECT reservation_state, outcome, cost_kind, initial_reserved_usd::text
          FROM ai_usage_attempts WHERE turn_id = $1 AND attempt_number = 1`,
         [context.turnId],
       );
       expect(reserved.rows[0]).toMatchObject({
         reservation_state: 'reserved',
+        outcome: 'reserved',
         cost_kind: 'unknown',
       });
       expect(Number(reserved.rows[0]?.initial_reserved_usd)).toBeGreaterThan(0);
