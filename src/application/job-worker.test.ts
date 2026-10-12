@@ -1100,6 +1100,38 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       expect(columnNames).not.toContain('completion_text');
     });
 
+    it('recovers a durable reservation through a new accounting service instance', async () => {
+      const context = await createUsageTurn('service-restart');
+      const beforeRestart = new UsageAccountingService(db!, budgetConfig());
+      const reservation = await beforeRestart.reserve(reservationInput(context));
+
+      const afterRestart = new UsageAccountingService(db!, budgetConfig());
+      await afterRestart.markInFlight(context);
+      await afterRestart.reconcileSuccess(
+        context,
+        { promptTokens: 21, completionTokens: 9, totalTokens: 30, costUsd: 0.000003 },
+        24,
+      );
+
+      const row = await db!.query<{
+        reservation_state: string;
+        cost_kind: string;
+        provider_cost_usd: string;
+        reserved_usd: string;
+      }>(
+        `SELECT reservation_state, cost_kind, provider_cost_usd::text, reserved_usd::text
+         FROM ai_usage_attempts WHERE turn_id = $1 AND attempt_number = 1`,
+        [context.turnId],
+      );
+      expect(row.rows[0]).toMatchObject({
+        reservation_state: 'settled',
+        cost_kind: 'actual',
+        provider_cost_usd: '0.000003000000',
+      });
+      expect(Number(row.rows[0]?.reserved_usd)).toBe(0);
+      expect(reservation.reservationId).toBeTruthy();
+    });
+
     it('keeps a conservative hold when successful provider usage and cost are missing', async () => {
       const context = await createUsageTurn('unknown');
       const accounting = new UsageAccountingService(db!, budgetConfig());
