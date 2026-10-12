@@ -74,9 +74,15 @@ describe('environment configuration', () => {
   });
 
   it('rejects invalid budget and price configuration', () => {
-    expect(() => parseEnv({ ...baseEnv, AI_USER_DAILY_REQUEST_LIMIT: '0' })).toThrow();
-    expect(() => parseEnv({ ...baseEnv, AI_GLOBAL_DAILY_BUDGET_USD: '-1' })).toThrow();
-    expect(() => parseEnv({ ...baseEnv, AI_ECONOMY_THRESHOLD_PERCENT: '100' })).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_USER_DAILY_REQUEST_LIMIT: '0' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_GLOBAL_DAILY_BUDGET_USD: '-1' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_ECONOMY_THRESHOLD_PERCENT: '100' }),
+    ).toThrow();
   });
 
   it('rejects unreasonable output-token and timeout limits', () => {
