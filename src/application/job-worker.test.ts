@@ -901,6 +901,7 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
           costUsd: 0.000004,
         },
         12,
+        'gen-usage-accounting-test-123',
       );
       await accounting.reconcileSuccess(
         context,
@@ -912,9 +913,11 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
         reservation_state: string;
         cost_kind: string;
         provider_cost_usd: string;
+        provider_generation_id: string | null;
         reserved_usd: string;
       }>(
-        `SELECT reservation_state, cost_kind, provider_cost_usd::text, reserved_usd::text
+        `SELECT reservation_state, cost_kind, provider_cost_usd::text,
+                provider_generation_id, reserved_usd::text
          FROM ai_usage_attempts WHERE turn_id = $1 AND attempt_number = 1`,
         [context.turnId],
       );
@@ -922,6 +925,7 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
         reservation_state: 'settled',
         cost_kind: 'actual',
         provider_cost_usd: '0.000004000000',
+        provider_generation_id: 'gen-usage-accounting-test-123',
       });
       expect(Number(settled.rows[0]?.reserved_usd)).toBe(0);
       expect(
