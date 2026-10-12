@@ -1011,8 +1011,11 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
       const rejected = results.find((result) => result.status === 'rejected');
       expect(rejected?.status).toBe('rejected');
-      expect(rejected?.reason).toBeInstanceOf(UsageBudgetError);
-      expect((rejected as PromiseRejectedResult).reason.reason).toBe('global_daily_budget');
+      if (!rejected || rejected.status !== 'rejected') {
+        throw new Error('Expected one concurrent reservation to be rejected');
+      }
+      expect(rejected.reason).toBeInstanceOf(UsageBudgetError);
+      expect((rejected.reason as UsageBudgetError).reason).toBe('global_daily_budget');
       const rows = await db!.query<{ count: number }>(
         'SELECT COUNT(*)::int AS count FROM ai_usage_attempts',
       );
