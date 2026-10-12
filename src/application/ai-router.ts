@@ -303,6 +303,10 @@ export function createAiRouter(
   logger: AiRouterLogger = defaultLogger,
   usageAccounting?: UsageAccountingService,
 ): AiRouter {
+  if (process.env.NODE_ENV === 'production' && !usageAccounting) {
+    throw new Error('Usage accounting is required for production AI calls');
+  }
+
   return {
     async generate(input) {
       const model = config.models[input.route];
