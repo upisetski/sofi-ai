@@ -310,7 +310,9 @@ export class UsageAccountingService {
   ): Promise<void> {
     await withTransaction(this.db, async (client) => {
       await client.query(mutexSql);
-      await client.query('SELECT id FROM usage_budget_mutex WHERE id = 1 FOR UPDATE');
+      await client.query(
+        'SELECT id FROM usage_budget_mutex WHERE id = 1 FOR UPDATE',
+      );
       await client.query(
         `UPDATE ai_usage_attempts
          SET completed_at = NOW(), duration_ms = $3, outcome = 'failure',
@@ -349,7 +351,12 @@ export class UsageAccountingService {
              cost_kind = 'unknown', cost_provenance = 'ambiguous_provider_outcome'
          WHERE turn_id = $1 AND attempt_number = $2
            AND reservation_state = 'in_flight'`,
-        [context.turnId, context.attemptNumber, Math.max(0, durationMs), category],
+        [
+          context.turnId,
+          context.attemptNumber,
+          Math.max(0, durationMs),
+          category,
+        ],
       );
     });
     this.logger.error({
