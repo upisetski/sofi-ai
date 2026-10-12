@@ -40,8 +40,8 @@ jobs:
       - run: npm run lint
       - name: Show Prettier diff
         run: |
-          npx prettier --write src/application/job-worker.test.ts src/application/job-worker.ts src/application/viber-event-processing.test.ts src/application/usage-accounting.ts
-          git diff -- src/application/job-worker.test.ts src/application/job-worker.ts src/application/viber-event-processing.test.ts src/application/usage-accounting.ts
+          npx prettier --write src/application/job-worker.test.ts src/application/job-worker.ts src/application/viber-event-processing.test.ts
+          git diff -- src/application/job-worker.test.ts src/application/job-worker.ts src/application/viber-event-processing.test.ts
       - run: npm run format:check
       - run: npm test
       - run: npm run build
