@@ -278,7 +278,9 @@ describe('AI Router', () => {
   });
 
   it('retains the reservation for an ambiguous timeout', async () => {
-    const generate = vi.fn().mockRejectedValue(new AiGenerationError('timeout'));
+    const generate = vi
+      .fn()
+      .mockRejectedValue(new AiGenerationError('timeout'));
     const accounting = {
       reserve: vi.fn().mockResolvedValue({
         reservationId: 'usage-1',
