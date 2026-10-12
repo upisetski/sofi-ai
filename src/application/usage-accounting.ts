@@ -204,7 +204,7 @@ export class UsageAccountingService {
            started_at, outcome, cost_kind, cost_provenance, reserved_usd,
            reservation_state, prompt_estimated_tokens
          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'in_flight', 'unknown',
-                   'conservative_character_bound', $7, 'in_flight', $8)
+                   'conservative_character_bound', $7, 'reserved', $8)
          ON CONFLICT (turn_id, attempt_number) DO NOTHING
          RETURNING id`,
         [
@@ -251,6 +251,19 @@ export class UsageAccountingService {
         economyMode: enteringEconomy,
       };
     });
+  }
+
+  async markInFlight(context: UsageAttemptContext): Promise<void> {
+    const result = await this.db.query(
+      `UPDATE ai_usage_attempts
+       SET reservation_state = 'in_flight'
+       WHERE turn_id = $1 AND attempt_number = $2
+         AND reservation_state = 'reserved'`,
+      [context.turnId, context.attemptNumber],
+    );
+    if ((result.rowCount ?? 0) !== 1) {
+      throw new Error('usage_reservation_transition_failed');
+    }
   }
 
   async markKnownFailure(
@@ -330,7 +343,7 @@ export class UsageAccountingService {
                prompt_tokens = $4, completion_tokens = $5, total_tokens = $6,
                provider_cost_usd = $7, estimated_cost_usd = NULL,
                cost_kind = 'actual', cost_provenance = 'openrouter_usage_cost',
-               reservation_state = 'settled', failure_category = NULL
+               reservation_state = 'settled', reserved_usd = 0, failure_category = NULL
            WHERE turn_id = $1 AND attempt_number = $2
              AND reservation_state = 'in_flight'`,
           [
@@ -351,7 +364,7 @@ export class UsageAccountingService {
                prompt_tokens = $4, completion_tokens = $5, total_tokens = $6,
                provider_cost_usd = NULL, estimated_cost_usd = $7,
                cost_kind = 'estimated', cost_provenance = 'configured_model_rates',
-               reservation_state = 'settled', failure_category = NULL
+               reservation_state = 'settled', reserved_usd = 0, failure_category = NULL
            WHERE turn_id = $1 AND attempt_number = $2
              AND reservation_state = 'in_flight'`,
           [
@@ -367,7 +380,7 @@ export class UsageAccountingService {
           `UPDATE ai_usage_attempts
            SET completed_at = NOW(), duration_ms = $3, outcome = 'success',
                prompt_tokens = $4, completion_tokens = $5, total_tokens = $6,
-               cost_kind = 'unknown', cost_provenance = 'provider_usage_missing',
+               reserved_usd = 0, cost_kind = 'unknown', cost_provenance = 'provider_usage_missing',
                reservation_state = 'uncertain', failure_category = 'usage_missing'
            WHERE turn_id = $1 AND attempt_number = $2
              AND reservation_state = 'in_flight'`,
