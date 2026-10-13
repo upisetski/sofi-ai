@@ -1373,7 +1373,7 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       await runGeneratedAndDelivered(worker);
 
       expect(sent).toEqual([
-        'I can’t process a new request right now. Please try again a little later.',
+        'I’ve reached your daily message allowance for now. Come back tomorrow and we’ll pick up where we left off 🙂',
       ]);
       const turn = await db!.query<{
         generation_status: string;
