@@ -29,12 +29,7 @@ export const envSchema = z
     OPENROUTER_DATA_COLLECTION_POLICY: z
       .enum(['deny', 'allow'])
       .default('deny'),
-    AI_MAX_OUTPUT_TOKENS: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(8192)
-      .default(512),
+    AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(8192).default(512),
     AI_REQUEST_TIMEOUT_MS: z.coerce
       .number()
       .int()
