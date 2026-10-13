@@ -171,8 +171,15 @@ describe('AI Router', () => {
     };
     const providerError = new AiGenerationError('http', 404, {
       providerErrorCode: 404,
+      providerErrorType: 'provider_unavailable',
+      providerCode: 'no_provider_available',
+      retryAfterSeconds: 3,
       providerErrorMessage:
         'No endpoints found matching your privacy requirements',
+      responseContentType: 'application/json',
+      responseBodyLength: 128,
+      providerResponseId: 'gen-http-error-123',
+      providerModel: 'provider/model-name',
     });
     const router = createAiRouter(
       config,
