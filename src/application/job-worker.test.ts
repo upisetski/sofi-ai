@@ -1216,6 +1216,60 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       expect(rows.rows[0]?.count).toBe(1);
     });
 
+    it('starts a fresh per-user spend and request window after UTC midnight', async () => {
+      const yesterday = await createUsageTurn('daily-window-rollover');
+      const nextTurn = await db!.query<{ id: string }>(
+        `INSERT INTO conversation_turns
+           (conversation_id, start_position, end_position)
+         VALUES ($1, 2, 2) RETURNING id`,
+        [yesterday.conversationId],
+      );
+      const today = {
+        ...yesterday,
+        turnId: nextTurn.rows[0]!.id,
+        attemptNumber: 1,
+      };
+      const accounting = new UsageAccountingService(
+        db!,
+        budgetConfig({
+          userDailyRequestLimit: 1,
+          userDailyBudgetUsd: 0.00002,
+          globalDailyBudgetUsd: 1,
+          globalMonthlyBudgetUsd: 5,
+        }),
+      );
+
+      await accounting.reserve(reservationInput(yesterday));
+      await db!.query(
+        `UPDATE ai_usage_attempts
+         SET started_at = date_trunc('day', NOW() AT TIME ZONE 'UTC')
+                           AT TIME ZONE 'UTC' - INTERVAL '1 day',
+             completed_at = NOW(),
+             outcome = 'success',
+             cost_kind = 'actual',
+             provider_cost_usd = 0.00002,
+             estimated_cost_usd = NULL,
+             reserved_usd = 0,
+             reservation_state = 'settled'
+         WHERE turn_id = $1 AND attempt_number = 1`,
+        [yesterday.turnId],
+      );
+
+      await expect(
+        accounting.reserve(reservationInput(today)),
+      ).resolves.toMatchObject({ economyMode: false });
+
+      const currentDayAttempts = await db!.query<{ count: number }>(
+        `SELECT COUNT(*)::int AS count
+         FROM ai_usage_attempts
+         WHERE user_id = $1
+           AND started_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
+                              AT TIME ZONE 'UTC'`,
+        [today.userId],
+      );
+      expect(currentDayAttempts.rows[0]?.count).toBe(1);
+    });
+
     it('serializes concurrent reservations against the same global daily ceiling', async () => {
       const first = await createUsageTurn('global-race-a');
       const second = await createUsageTurn('global-race-b');
