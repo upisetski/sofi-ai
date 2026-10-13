@@ -62,15 +62,46 @@ describe('environment configuration', () => {
     const config = parseEnv({ ...baseEnv, NODE_ENV: 'test' });
 
     expect(config.AI_ENABLED).toBe(true);
-    expect(config.AI_MODEL_CHEAP_TEXT).toBe('google/gemma-3-4b-it');
+    expect(config.AI_MODEL_CHEAP_TEXT).toBe('openai/gpt-6-luna');
+    expect(config.OPENROUTER_REQUIRE_ZDR).toBe(true);
+    expect(config.OPENROUTER_DATA_COLLECTION_POLICY).toBe('deny');
     expect(config.AI_MAX_OUTPUT_TOKENS).toBe(512);
     expect(config.AI_REQUEST_TIMEOUT_MS).toBe(30000);
-    expect(config.AI_USAGE_PRICING_MODEL).toBe('google/gemma-3-4b-it');
+    expect(config.AI_USAGE_PRICING_MODEL).toBe('openai/gpt-6-luna');
+    expect(config.AI_USAGE_INPUT_PRICE_PER_MILLION_USD).toBe(0.1);
+    expect(config.AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD).toBe(0.5);
     expect(config.AI_USER_DAILY_REQUEST_LIMIT).toBe(50);
     expect(config.AI_USER_DAILY_BUDGET_USD).toBe(0.2);
     expect(config.AI_GLOBAL_DAILY_BUDGET_USD).toBe(2);
     expect(config.AI_GLOBAL_MONTHLY_BUDGET_USD).toBe(30);
     expect(config.AI_ECONOMY_MAX_OUTPUT_TOKENS).toBe(256);
+  });
+
+  it('allows Railway overrides for model, pricing, and privacy settings', () => {
+    const config = parseEnv({
+      ...baseEnv,
+      AI_MODEL_CHEAP_TEXT: 'custom/model',
+      AI_USAGE_PRICING_MODEL: 'custom/model',
+      AI_USAGE_INPUT_PRICE_PER_MILLION_USD: '0.2',
+      AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD: '0.8',
+      OPENROUTER_REQUIRE_ZDR: 'false',
+      OPENROUTER_DATA_COLLECTION_POLICY: 'allow',
+    });
+    expect(config.AI_MODEL_CHEAP_TEXT).toBe('custom/model');
+    expect(config.AI_USAGE_PRICING_MODEL).toBe('custom/model');
+    expect(config.AI_USAGE_INPUT_PRICE_PER_MILLION_USD).toBe(0.2);
+    expect(config.AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD).toBe(0.8);
+    expect(config.OPENROUTER_REQUIRE_ZDR).toBe(false);
+    expect(config.OPENROUTER_DATA_COLLECTION_POLICY).toBe('allow');
+  });
+
+  it('rejects invalid privacy policy settings', () => {
+    expect(() =>
+      parseEnv({ ...baseEnv, OPENROUTER_REQUIRE_ZDR: 'sometimes' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, OPENROUTER_DATA_COLLECTION_POLICY: 'unknown' }),
+    ).toThrow();
   });
 
   it('rejects invalid budget and price configuration', () => {
