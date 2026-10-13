@@ -15,9 +15,18 @@ export interface LocalizedTextResponse {
   text: string;
 }
 
+export type AiLimitReason =
+  | 'request_rate_limit'
+  | 'user_daily_budget'
+  | 'global_daily_budget'
+  | 'global_monthly_budget'
+  | 'pricing_unavailable';
+
 interface LocaleCopy extends LocalizedWelcome {
   aiTemporaryError: string;
-  aiLimitReached: string;
+  aiUserLimitReached: string;
+  aiGlobalDailyLimitReached: string;
+  aiGlobalMonthlyLimitReached: string;
   contextResetConfirmation: string;
 }
 
@@ -52,9 +61,18 @@ export function getAiTemporaryErrorResponse(
 
 export function getAiLimitReachedResponse(
   language: string | undefined,
+  reason: AiLimitReason,
 ): LocalizedTextResponse {
   const locale = locales[resolveLocale(language)];
-  return { senderName: locale.senderName, text: locale.aiLimitReached };
+  const text =
+    reason === 'global_daily_budget'
+      ? locale.aiGlobalDailyLimitReached
+      : reason === 'global_monthly_budget'
+        ? locale.aiGlobalMonthlyLimitReached
+        : reason === 'pricing_unavailable'
+          ? locale.aiTemporaryError
+          : locale.aiUserLimitReached;
+  return { senderName: locale.senderName, text };
 }
 
 export function getContextResetConfirmation(
