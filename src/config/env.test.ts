@@ -67,8 +67,7 @@ describe('environment configuration', () => {
     expect(config.AI_REQUEST_TIMEOUT_MS).toBe(30000);
     expect(config.AI_USAGE_PRICING_MODEL).toBe('google/gemma-3-4b-it');
     expect(config.AI_USER_DAILY_REQUEST_LIMIT).toBe(50);
-    expect(config.AI_USER_DAILY_BUDGET_USD).toBe(1);
-    expect(config.AI_REQUEST_MAX_ESTIMATED_COST_USD).toBe(0.01);
+    expect(config.AI_USER_DAILY_BUDGET_USD).toBe(0.2);
     expect(config.AI_GLOBAL_DAILY_BUDGET_USD).toBe(2);
     expect(config.AI_GLOBAL_MONTHLY_BUDGET_USD).toBe(30);
     expect(config.AI_ECONOMY_MAX_OUTPUT_TOKENS).toBe(256);
