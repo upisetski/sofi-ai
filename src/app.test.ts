@@ -303,7 +303,7 @@ describe('Viber webhook', () => {
       process.env.VIBER_AUTH_TOKEN = authToken;
       const app = buildApp({
         db: requireTestDb(),
-        reorderDelayMs: 0,
+        reorderDelayMs: 1000,
         messageDebounceMs: 5000,
       });
 
@@ -376,7 +376,8 @@ describe('Viber webhook', () => {
         throw new Error('Expected the reset command to keep a conversation job');
       }
       expect(resetDeadline).toBeLessThan(initialDeadline - 3000);
-      expect(resetDeadline).toBeLessThanOrEqual(Date.now() + 1000);
+      expect(resetDeadline).toBeGreaterThan(Date.now() + 500);
+      expect(resetDeadline).toBeLessThanOrEqual(Date.now() + 1500);
 
       await app.close();
     },
