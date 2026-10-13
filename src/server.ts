@@ -32,6 +32,8 @@ const aiRouter = env.AI_ENABLED
       },
       createOpenRouterClient({
         ...(env.OPENROUTER_API_KEY ? { apiKey: env.OPENROUTER_API_KEY } : {}),
+        requireZdr: env.OPENROUTER_REQUIRE_ZDR,
+        dataCollectionPolicy: env.OPENROUTER_DATA_COLLECTION_POLICY,
       }),
       undefined,
       usageAccounting,

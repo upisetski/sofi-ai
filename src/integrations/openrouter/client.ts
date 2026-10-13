@@ -9,6 +9,8 @@ const CHAT_COMPLETIONS_URL = 'https://openrouter.ai/api/v1/chat/completions';
 interface OpenRouterClientOptions {
   apiKey?: string;
   fetchImpl?: typeof fetch;
+  requireZdr?: boolean;
+  dataCollectionPolicy?: 'deny' | 'allow';
 }
 
 interface ResponseDiagnostics {
@@ -37,6 +39,10 @@ export function createOpenRouterClient(
             model: input.model,
             messages: input.messages,
             max_tokens: input.maxOutputTokens,
+            provider: {
+              zdr: options.requireZdr ?? true,
+              data_collection: options.dataCollectionPolicy ?? 'deny',
+            },
           }),
           signal: AbortSignal.timeout(input.timeoutMs),
         });

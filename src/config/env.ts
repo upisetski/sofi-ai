@@ -21,7 +21,9 @@ export const envSchema = z
       (value) => (value === '' ? undefined : value),
       z.string().min(1).optional(),
     ),
-    AI_MODEL_CHEAP_TEXT: z.string().min(1).default('google/gemma-3-4b-it'),
+    AI_MODEL_CHEAP_TEXT: z.string().min(1).default('openai/gpt-6-luna'),
+    OPENROUTER_REQUIRE_ZDR: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
+    OPENROUTER_DATA_COLLECTION_POLICY: z.enum(['deny', 'allow']).default('deny'),
     AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(8192).default(512),
     AI_REQUEST_TIMEOUT_MS: z.coerce
       .number()
@@ -29,17 +31,17 @@ export const envSchema = z
       .min(1000)
       .max(120000)
       .default(30000),
-    AI_USAGE_PRICING_MODEL: z.string().min(1).default('google/gemma-3-4b-it'),
+    AI_USAGE_PRICING_MODEL: z.string().min(1).default('openai/gpt-6-luna'),
     AI_USAGE_INPUT_PRICE_PER_MILLION_USD: z.coerce
       .number()
       .finite()
       .positive()
-      .default(0.05),
+      .default(0.1),
     AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD: z.coerce
       .number()
       .finite()
       .positive()
-      .default(0.1),
+      .default(0.5),
     AI_USER_DAILY_REQUEST_LIMIT: z.coerce.number().int().positive().default(50),
     AI_USER_DAILY_BUDGET_USD: z.coerce
       .number()
