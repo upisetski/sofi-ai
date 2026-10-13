@@ -6,7 +6,7 @@ Let users refer to earlier answers across separate text-message bursts without l
 
 ## User behavior
 
-- Text messages continue to be grouped by the existing 10-second debounce.
+- Text messages are grouped by a configurable quiet period (5 seconds by default); `/reset` and `/forget` bypass the debounce delay.
 - Sofi uses a bounded recent conversation history when generating each reply.
 - Sending `/reset` (also accepted: `/forget`) clears the conversation context and receives a localized confirmation. Messages after the reset command start a fresh context.
 - A temporary generation problem produces a localized temporary-error reply after bounded generation retries. A delivery problem does not regenerate a reply that has already been persisted.
