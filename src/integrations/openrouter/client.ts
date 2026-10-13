@@ -95,6 +95,30 @@ export function createOpenRouterClient(
         });
       }
 
+      if (isRecord(payload) && isRecord(payload.error)) {
+        throw new AiGenerationError(
+          'provider_response_error',
+          response.status,
+          {
+            ...responseDetails,
+            ...extractOpenRouterErrorDetails(
+              payload,
+              options.apiKey,
+              input.messages,
+            ),
+            responseIssue: 'provider_error',
+            ...(parseRetryAfterSeconds(response.headers.get('retry-after')) !==
+            undefined
+              ? {
+                  retryAfterSeconds: parseRetryAfterSeconds(
+                    response.headers.get('retry-after'),
+                  ),
+                }
+              : {}),
+          },
+        );
+      }
+
       return parseCompletion(payload, responseDetails);
     },
   };
@@ -151,7 +175,20 @@ async function readOpenRouterError(
     };
   }
 
-  const error = payload.error;
+  return {
+    ...responseDetails,
+    ...extractOpenRouterErrorDetails(payload, apiKey, messages),
+  };
+}
+
+function extractOpenRouterErrorDetails(
+  payload: Record<string, unknown>,
+  apiKey: string,
+  messages: AiProviderRequestMessages,
+): AiGenerationErrorDetails {
+  const error = isRecord(payload.error) ? payload.error : undefined;
+  if (!error) return {};
+
   const metadata = isRecord(error.metadata) ? error.metadata : undefined;
   const providerErrorCode = normalizeProviderErrorCode(error.code);
   const rawMessage = error.message;
@@ -159,16 +196,12 @@ async function readOpenRouterError(
     typeof rawMessage === 'string'
       ? sanitizeProviderErrorMessage(rawMessage, apiKey, messages)
       : undefined;
-  const providerErrorType = safeProviderIdentifier(
-    metadata?.error_type,
-    64,
-  );
+  const providerErrorType = safeProviderIdentifier(metadata?.error_type, 64);
   const providerCode = safeProviderIdentifier(metadata?.provider_code, 64);
   const providerResponseId = safeProviderIdentifier(payload.id, 128);
   const providerModel = safeProviderIdentifier(payload.model, 128);
 
   return {
-    ...responseDetails,
     ...(providerErrorCode !== undefined ? { providerErrorCode } : {}),
     ...(providerErrorMessage ? { providerErrorMessage } : {}),
     ...(providerErrorType ? { providerErrorType } : {}),
