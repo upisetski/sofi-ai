@@ -138,8 +138,7 @@ Sofi is free to users.
 Required safety limits before the first external user rollout include:
 - per-user daily USD budget
 - daily text-request and web-search limits
-- per-request maximum cost
 - global daily/monthly budget
 - economy mode near the global budget ceiling
 
-These controls are not yet enforced by the current application. The first AI generation feature currently limits request input size, output tokens, and request timeout, but does not cap aggregate spend. Implement and verify budget enforcement before enabling any external users. See the [MVP roadmap](roadmap.md) for the release gate. Exact thresholds should be configurable and adjusted using real usage data.
+These controls are implemented for the current `cheap_text` route: the application reserves estimated costs before provider calls, reconciles reported or estimated usage, and enforces per-user request/daily-budget limits and global daily/monthly ceilings. The default per-user daily spend allowance is $0.20; the $2 global daily and $30 global monthly ceilings and 50 requests per user/day remain in force. There is no separate per-request price cap. Web search and any separately billed search costs must pass through the same guard before that route is enabled. See the [MVP roadmap](roadmap.md) for the release gate. Exact thresholds should be configurable and adjusted using real usage data.

@@ -45,12 +45,7 @@ export const envSchema = z
       .number()
       .finite()
       .positive()
-      .default(0.1),
-    AI_REQUEST_MAX_ESTIMATED_COST_USD: z.coerce
-      .number()
-      .finite()
-      .positive()
-      .default(0.01),
+      .default(0.2),
     AI_GLOBAL_DAILY_BUDGET_USD: z.coerce
       .number()
       .finite()

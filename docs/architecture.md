@@ -248,14 +248,13 @@ Current PostgreSQL persistence covers users, conversations, inbound events, user
 Every current `cheap_text` provider call goes through the AI Router with a stable internal user ID, conversation ID, durable turn ID, and WP1 generation-attempt number. The router builds the bounded provider messages, reserves a conservative cost bound in PostgreSQL, marks the attempt in-flight, and only then calls OpenRouter. The application enforces:
 
 - Per-user daily provider-attempt count and daily spend.
-- Per-request estimated-cost maximum.
 - Global UTC daily and monthly spend ceilings, including held/uncertain reservations.
-- Economy mode at the configured `AI_ECONOMY_THRESHOLD_PERCENT` (default 80%) of projected global daily/monthly spend (or when lowering the output cap may bring a request under its per-request guard), limiting output to `AI_ECONOMY_MAX_OUTPUT_TOKENS` (default 256) or the normal token cap, whichever is lower.
+- Economy mode at the configured `AI_ECONOMY_THRESHOLD_PERCENT` (default 80%) of projected global daily/monthly spend, limiting output to `AI_ECONOMY_MAX_OUTPUT_TOKENS` (default 256) or the normal token cap, whichever is lower.
 - Fail-closed behavior for unknown model pricing and budget denial, with localized user-facing copy.
 
 The content-free `ai_usage_attempts` ledger distinguishes actual, estimated, and unknown costs. OpenRouter usage/cost reporting is requested explicitly. If a response includes actual cost, it is reconciled; if cost is missing but both token counts exist, cost is estimated from the reviewed configured model rates. Missing usage/cost or ambiguous provider outcomes retain a conservative hold instead of silently recording zero. Reservations that expire before entering in-flight can be released; expired in-flight attempts are marked uncertain. Terminal accounting records are retained for 90 days.
 
-Initial configurable defaults are 50 provider attempts per user/day, $0.10 per user/day, $0.01 maximum estimated request cost, $2 global/day, and $30 global/month. The default reviewed `google/gemma-3-4b-it` rates are $0.05/M input tokens and $0.10/M output tokens. A custom model requires a matching `AI_USAGE_PRICING_MODEL` and verified rates or the guard blocks the call. Operators must also configure an OpenRouter account-level spend cap before an external pilot.
+Initial configurable defaults are 50 provider attempts per user/day, $0.20 per user/day, $2 global/day, and $30 global/month. There is no separate per-request price cap; bounded input/output, timeouts, request-count limits, and global budgets remain in force. The default reviewed `google/gemma-3-4b-it` rates are $0.05/M input tokens and $0.10/M output tokens. A custom model requires a matching `AI_USAGE_PRICING_MODEL` and verified rates or the guard blocks the call. Operators must also configure an OpenRouter account-level spend cap before an external pilot.
 
 The shared accounting contract accepts AI Router route IDs, but web search is not implemented by WP2. WP3 must reserve for any separately billed search/tool costs before the `web` route is enabled. Structured budget and usage events are not a substitute for WP4 alerting or a dashboard.
 

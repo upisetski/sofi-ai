@@ -819,8 +819,7 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       inputPricePerMillionUsd: 0.05,
       outputPricePerMillionUsd: 0.1,
       userDailyRequestLimit: 50,
-      userDailyBudgetUsd: 0.1,
-      requestMaxEstimatedCostUsd: 0.01,
+      userDailyBudgetUsd: 0.2,
       globalDailyBudgetUsd: 2,
       globalMonthlyBudgetUsd: 30,
       economyThresholdPercent: 80,
@@ -1216,6 +1215,60 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       expect(rows.rows[0]?.count).toBe(1);
     });
 
+    it('starts a fresh per-user spend and request window after UTC midnight', async () => {
+      const yesterday = await createUsageTurn('daily-window-rollover');
+      const nextTurn = await db!.query<{ id: string }>(
+        `INSERT INTO conversation_turns
+           (conversation_id, start_position, end_position)
+         VALUES ($1, 2, 2) RETURNING id`,
+        [yesterday.conversationId],
+      );
+      const today = {
+        ...yesterday,
+        turnId: nextTurn.rows[0]!.id,
+        attemptNumber: 1,
+      };
+      const accounting = new UsageAccountingService(
+        db!,
+        budgetConfig({
+          userDailyRequestLimit: 1,
+          userDailyBudgetUsd: 0.00002,
+          globalDailyBudgetUsd: 1,
+          globalMonthlyBudgetUsd: 5,
+        }),
+      );
+
+      await accounting.reserve(reservationInput(yesterday));
+      await db!.query(
+        `UPDATE ai_usage_attempts
+         SET started_at = date_trunc('day', NOW() AT TIME ZONE 'UTC')
+                           AT TIME ZONE 'UTC' - INTERVAL '1 day',
+             completed_at = NOW(),
+             outcome = 'success',
+             cost_kind = 'actual',
+             provider_cost_usd = 0.00002,
+             estimated_cost_usd = NULL,
+             reserved_usd = 0,
+             reservation_state = 'settled'
+         WHERE turn_id = $1 AND attempt_number = 1`,
+        [yesterday.turnId],
+      );
+
+      await expect(
+        accounting.reserve(reservationInput(today)),
+      ).resolves.toMatchObject({ economyMode: false });
+
+      const currentDayAttempts = await db!.query<{ count: number }>(
+        `SELECT COUNT(*)::int AS count
+         FROM ai_usage_attempts
+         WHERE user_id = $1
+           AND started_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
+                              AT TIME ZONE 'UTC'`,
+        [today.userId],
+      );
+      expect(currentDayAttempts.rows[0]?.count).toBe(1);
+    });
+
     it('serializes concurrent reservations against the same global daily ceiling', async () => {
       const first = await createUsageTurn('global-race-a');
       const second = await createUsageTurn('global-race-b');
@@ -1249,20 +1302,16 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       expect(rows.rows[0]?.count).toBe(1);
     });
 
-    it('rejects an over-cost request before provider invocation and does not duplicate attempts', async () => {
-      const context = await createUsageTurn('request-cost-limit');
-      const accounting = new UsageAccountingService(
-        db!,
-        budgetConfig({ requestMaxEstimatedCostUsd: 0.000001 }),
-      );
+    it('allows a request above the former per-request cap when daily and global budgets cover it', async () => {
+      const context = await createUsageTurn('request-within-daily-budget');
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+
       await expect(
         accounting.reserve(reservationInput(context, 512)),
-      ).rejects.toMatchObject({ reason: 'request_cost_limit' });
-      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject(
-        {
-          rowCount: 0,
-        },
-      );
+      ).resolves.toMatchObject({ economyMode: false });
+      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject({
+        rowCount: 1,
+      });
     });
 
     it('enforces per-user daily spending independently of the global budget', async () => {
