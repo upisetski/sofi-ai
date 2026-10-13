@@ -137,20 +137,30 @@ describe('OpenRouter client', () => {
     });
   });
 
-  it('includes a sanitized OpenRouter error summary without logging the raw body', async () => {
+  it('includes sanitized OpenRouter error metadata without logging the raw body', async () => {
+    const body = JSON.stringify({
+      id: 'gen-http-error-123',
+      model: 'provider/model-name',
+      error: {
+        message:
+          'No endpoints found matching your privacy requirements. Prompt: second message. Bearer test-secret',
+        code: 404,
+        metadata: {
+          error_type: 'provider_unavailable',
+          provider_code: 'no_provider_available',
+          privateDetails: 'must not be logged',
+        },
+      },
+      user_id: 'private-user-id',
+    });
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          error: {
-            message:
-              'No endpoints found matching your privacy requirements. Prompt: second message. Bearer test-secret',
-            code: 404,
-            metadata: { privateDetails: 'must not be logged' },
-          },
-          user_id: 'private-user-id',
-        }),
-        { status: 404, headers: { 'content-type': 'application/json' } },
-      ),
+      new Response(body, {
+        status: 404,
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          'retry-after': '3',
+        },
+      }),
     );
     const client = createOpenRouterClient({ apiKey: 'test-secret', fetchImpl });
 
@@ -166,8 +176,15 @@ describe('OpenRouter client', () => {
       kind: 'http',
       httpStatus: 404,
       providerErrorCode: 404,
+      providerErrorType: 'provider_unavailable',
+      providerCode: 'no_provider_available',
       providerErrorMessage:
         'No endpoints found matching your privacy requirements. Prompt: [redacted input]. Bearer [redacted]',
+      responseContentType: 'application/json',
+      responseBodyLength: new TextEncoder().encode(body).byteLength,
+      providerResponseId: 'gen-http-error-123',
+      providerModel: 'provider/model-name',
+      retryAfterSeconds: 3,
     });
     expect(JSON.stringify(thrown)).not.toContain('second message');
     expect(JSON.stringify(thrown)).not.toContain('test-secret');
@@ -175,18 +192,35 @@ describe('OpenRouter client', () => {
     expect(JSON.stringify(thrown)).not.toContain('private-user-id');
   });
 
-  it('handles non-JSON HTTP errors without exposing the response body', async () => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(
-        new Response('sensitive provider response body', { status: 429 }),
-      );
+  it('records diagnostics for non-JSON HTTP errors without exposing the response body', async () => {
+    const body = 'sensitive provider response body';
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(body, {
+        status: 429,
+        headers: {
+          'content-type': 'text/plain; charset=utf-8',
+          'retry-after': '2',
+        },
+      }),
+    );
     const client = createOpenRouterClient({ apiKey: 'test-secret', fetchImpl });
 
-    await expect(client.generate(request)).rejects.toMatchObject({
+    let thrown: unknown;
+    try {
+      await client.generate(request);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toMatchObject({
       kind: 'http',
       httpStatus: 429,
+      responseIssue: 'invalid_error_json',
+      responseContentType: 'text/plain',
+      responseBodyLength: new TextEncoder().encode(body).byteLength,
+      retryAfterSeconds: 2,
     });
+    expect(JSON.stringify(thrown)).not.toContain(body);
   });
 
   it('describes invalid JSON responses without logging their content', async () => {
