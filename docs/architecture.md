@@ -217,7 +217,7 @@ Specific models remain configuration, not product logic.
 
 ## Web search
 
-Search only when current information is needed. When search is used, the answer should include useful sources.
+The OpenRouter `openrouter:web_search` server tool is available on ordinary text requests; the model decides whether a search is useful, so non-current writing and explanation requests need not trigger search. The default `auto` engine uses native provider search where the selected model endpoint supports it and otherwise falls back to Exa. Engine, result caps, context size, and the conservative per-search budget estimate are configurable through `AI_WEB_SEARCH_*` environment variables. The current default caps total results at five with low search context. Search usage is read from OpenRouter's `usage.server_tool_use.web_search_requests`; model-token cost and estimated tool cost are reconciled separately. Because native provider search pricing and language quality vary, operators must compare ledger estimates with actual OpenRouter billing and test Russian/Belarusian queries before the external pilot. OpenRouter server tools are beta and their contract may change.
 
 ## Vision (deferred until after the first MVP)
 

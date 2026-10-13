@@ -21,6 +21,12 @@ const usageAccounting = new UsageAccountingService(db, {
   globalMonthlyBudgetUsd: env.AI_GLOBAL_MONTHLY_BUDGET_USD,
   economyThresholdPercent: env.AI_ECONOMY_THRESHOLD_PERCENT,
   economyMaxOutputTokens: env.AI_ECONOMY_MAX_OUTPUT_TOKENS,
+  webSearchCostPerRequestUsd: env.AI_WEB_SEARCH_ENABLED
+    ? env.AI_WEB_SEARCH_COST_PER_REQUEST_USD
+    : 0,
+  webSearchMaxRequests: env.AI_WEB_SEARCH_ENABLED
+    ? env.AI_WEB_SEARCH_MAX_REQUESTS
+    : 0,
 });
 const viberClient = createViberClient({ authToken: env.VIBER_AUTH_TOKEN });
 const aiRouter = env.AI_ENABLED
@@ -34,6 +40,12 @@ const aiRouter = env.AI_ENABLED
         ...(env.OPENROUTER_API_KEY ? { apiKey: env.OPENROUTER_API_KEY } : {}),
         requireZdr: env.OPENROUTER_REQUIRE_ZDR,
         dataCollectionPolicy: env.OPENROUTER_DATA_COLLECTION_POLICY,
+        webSearchEnabled: env.AI_WEB_SEARCH_ENABLED,
+        webSearchEngine: env.AI_WEB_SEARCH_ENGINE,
+        webSearchMaxResults: env.AI_WEB_SEARCH_MAX_RESULTS,
+        webSearchMaxTotalResults: env.AI_WEB_SEARCH_MAX_TOTAL_RESULTS,
+        webSearchMaxRequests: env.AI_WEB_SEARCH_MAX_REQUESTS,
+        webSearchContextSize: env.AI_WEB_SEARCH_CONTEXT_SIZE,
       }),
       undefined,
       usageAccounting,

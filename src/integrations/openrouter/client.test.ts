@@ -66,8 +66,63 @@ describe('OpenRouter client', () => {
       messages: request.messages,
       max_tokens: 512,
       provider: { zdr: true, data_collection: 'deny' },
+      max_tool_calls: 5,
+      tools: [
+        {
+          type: 'openrouter:web_search',
+          parameters: {
+            engine: 'auto',
+            max_results: 5,
+            max_total_results: 5,
+            search_context_size: 'low',
+          },
+        },
+      ],
     });
     expect(init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('parses the number of server web-search requests', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: 'Current answer with sources',
+              },
+            },
+          ],
+          usage: {
+            prompt_tokens: 10,
+            completion_tokens: 20,
+            total_tokens: 30,
+            cost: 0.0002,
+            server_tool_use: { web_search_requests: 2 },
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl });
+    await expect(client.generate(request)).resolves.toMatchObject({
+      usage: { webSearchRequests: 2, costUsd: 0.0002 },
+    });
+  });
+
+  it('can disable web search explicitly', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(successResponse());
+    const client = createOpenRouterClient({
+      apiKey: 'test-key',
+      webSearchEnabled: false,
+      fetchImpl,
+    });
+    await client.generate(request);
+    const [, init] = fetchImpl.mock.calls[0] ?? [];
+    expect(JSON.parse(String(init?.body))).not.toHaveProperty('tools');
   });
 
   it('allows explicit privacy policy overrides for deployment configuration', async () => {

@@ -12,6 +12,8 @@ export interface UsageBudgetConfig {
   globalMonthlyBudgetUsd: number;
   economyThresholdPercent: number;
   economyMaxOutputTokens: number;
+  webSearchCostPerRequestUsd?: number;
+  webSearchMaxRequests?: number;
 }
 
 export interface UsageAttemptContext {
@@ -87,6 +89,22 @@ function estimatedPromptTokens(
   return Math.ceil(codeUnits * 8 + messages.length * 8);
 }
 
+function maximumWebSearchCost(config: UsageBudgetConfig): number {
+  return money(
+    (config.webSearchCostPerRequestUsd ?? 0) *
+      (config.webSearchMaxRequests ?? 0),
+  );
+}
+
+function reportedWebSearchCost(
+  usage: AiUsage | undefined,
+  config: UsageBudgetConfig,
+): number {
+  const count = usage?.webSearchRequests ?? 0;
+  if (!Number.isSafeInteger(count) || count < 0) return 0;
+  return money(count * (config.webSearchCostPerRequestUsd ?? 0));
+}
+
 function estimatedCost(
   promptTokens: number,
   completionTokens: number,
@@ -145,10 +163,9 @@ export class UsageAccountingService {
 
     const promptTokens = estimatedPromptTokens(input.messages);
     let effectiveMaxOutputTokens = input.maxOutputTokens;
-    const normalEstimate = estimatedCost(
-      promptTokens,
-      input.maxOutputTokens,
-      this.config,
+    const normalEstimate = money(
+      estimatedCost(promptTokens, input.maxOutputTokens, this.config) +
+        maximumWebSearchCost(this.config),
     );
 
     return withTransaction(this.db, async (client) => {
@@ -204,10 +221,9 @@ export class UsageAccountingService {
         );
       }
 
-      const reservationEstimate = estimatedCost(
-        promptTokens,
-        effectiveMaxOutputTokens,
-        this.config,
+      const reservationEstimate = money(
+        estimatedCost(promptTokens, effectiveMaxOutputTokens, this.config) +
+          maximumWebSearchCost(this.config),
       );
       if (userDaySpend + reservationEstimate > this.config.userDailyBudgetUsd) {
         this.logRejection(input, 'user_daily_budget');
@@ -375,6 +391,10 @@ export class UsageAccountingService {
     providerGenerationId?: string,
   ): Promise<void> {
     const actualCost = usage?.costUsd;
+    const hasActualCost =
+      actualCost !== undefined &&
+      Number.isFinite(actualCost) &&
+      actualCost >= 0;
     const hasTokens =
       Number.isFinite(usage?.promptTokens) &&
       Number.isFinite(usage?.completionTokens) &&
@@ -382,18 +402,32 @@ export class UsageAccountingService {
       usage.completionTokens !== undefined &&
       usage.promptTokens >= 0 &&
       usage.completionTokens >= 0;
+    const webSearchRequests = usage?.webSearchRequests ?? 0;
+    const hasValidSearchCount =
+      Number.isSafeInteger(webSearchRequests) && webSearchRequests >= 0;
+    const searchCost = reportedWebSearchCost(usage, this.config);
+    const hasBaseCost = hasActualCost || hasTokens;
+    const useActualCost =
+      hasActualCost && webSearchRequests === 0 && hasValidSearchCount;
+    const reconciledCost =
+      hasBaseCost && hasValidSearchCount
+        ? money(
+            (hasActualCost
+              ? actualCost
+              : estimatedCost(
+                  usage!.promptTokens!,
+                  usage!.completionTokens!,
+                  this.config,
+                )) + searchCost,
+          )
+        : undefined;
 
     await withTransaction(this.db, async (client) => {
       await client.query(mutexSql);
       await client.query(
         'SELECT id FROM usage_budget_mutex WHERE id = 1 FOR UPDATE',
       );
-
-      if (
-        actualCost !== undefined &&
-        Number.isFinite(actualCost) &&
-        actualCost >= 0
-      ) {
+      if (reconciledCost !== undefined && useActualCost) {
         await client.query(
           `UPDATE ai_usage_attempts
            SET completed_at = NOW(), duration_ms = $3, outcome = 'success',
@@ -413,18 +447,19 @@ export class UsageAccountingService {
             actualCost,
           ],
         );
-      } else if (hasTokens) {
-        const estimate = estimatedCost(
-          usage.promptTokens!,
-          usage.completionTokens!,
-          this.config,
-        );
+      } else if (reconciledCost !== undefined) {
+        const provenance =
+          webSearchRequests > 0
+            ? hasActualCost
+              ? 'openrouter_model_cost_plus_estimated_search_cost'
+              : 'configured_model_rates_plus_estimated_search_cost'
+            : 'configured_model_rates';
         await client.query(
           `UPDATE ai_usage_attempts
            SET completed_at = NOW(), duration_ms = $3, outcome = 'success',
                prompt_tokens = $4, completion_tokens = $5, total_tokens = $6,
                provider_cost_usd = NULL, estimated_cost_usd = $7,
-               cost_kind = 'estimated', cost_provenance = 'configured_model_rates',
+               cost_kind = 'estimated', cost_provenance = $8,
                reservation_state = 'settled', reserved_usd = 0, failure_category = NULL
            WHERE turn_id = $1 AND attempt_number = $2
              AND reservation_state = 'in_flight'`,
@@ -435,12 +470,13 @@ export class UsageAccountingService {
             usage?.promptTokens ?? null,
             usage?.completionTokens ?? null,
             usage?.totalTokens ?? null,
-            estimate,
+            reconciledCost,
+            provenance,
           ],
         );
       } else {
-        // The provider returned a response but there is insufficient usage data
-        // to settle confidently. Keep the hold charged against budget windows.
+        // Missing model usage or an invalid tool count makes total cost uncertain.
+        // Keep the original hold rather than releasing potentially billable work.
         await client.query(
           `UPDATE ai_usage_attempts
            SET completed_at = NOW(), duration_ms = $3, outcome = 'success',
@@ -478,11 +514,11 @@ export class UsageAccountingService {
     });
 
     const costKind =
-      actualCost !== undefined && Number.isFinite(actualCost) && actualCost >= 0
-        ? 'actual'
-        : hasTokens
-          ? 'estimated'
-          : 'unknown';
+      reconciledCost === undefined
+        ? 'unknown'
+        : useActualCost
+          ? 'actual'
+          : 'estimated';
     if (costKind === 'unknown') {
       this.logger.error({
         event: 'ai_usage_provider_data_missing',
@@ -515,10 +551,9 @@ export class UsageAccountingService {
       turnId: context.turnId,
       attempt: context.attemptNumber,
       costKind,
-      ...(actualCost !== undefined &&
-      Number.isFinite(actualCost) &&
-      actualCost >= 0
-        ? { costUsd: actualCost }
+      ...(reconciledCost !== undefined ? { costUsd: reconciledCost } : {}),
+      ...(webSearchRequests > 0
+        ? { webSearchRequests, estimatedWebSearchCostUsd: searchCost }
         : {}),
       durationMs: Math.max(0, durationMs),
     });

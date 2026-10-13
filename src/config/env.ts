@@ -29,6 +29,39 @@ export const envSchema = z
     OPENROUTER_DATA_COLLECTION_POLICY: z
       .enum(['deny', 'allow'])
       .default('deny'),
+    AI_WEB_SEARCH_ENABLED: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
+    AI_WEB_SEARCH_ENGINE: z
+      .enum(['auto', 'native', 'exa', 'parallel', 'perplexity'])
+      .default('auto'),
+    AI_WEB_SEARCH_MAX_RESULTS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(10)
+      .default(5),
+    AI_WEB_SEARCH_MAX_TOTAL_RESULTS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(10)
+      .default(5),
+    AI_WEB_SEARCH_CONTEXT_SIZE: z
+      .enum(['low', 'medium', 'high'])
+      .default('low'),
+    AI_WEB_SEARCH_COST_PER_REQUEST_USD: z.coerce
+      .number()
+      .finite()
+      .positive()
+      .default(0.01),
+    AI_WEB_SEARCH_MAX_REQUESTS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(10)
+      .default(5),
     AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(8192).default(512),
     AI_REQUEST_TIMEOUT_MS: z.coerce
       .number()

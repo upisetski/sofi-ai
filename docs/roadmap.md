@@ -84,16 +84,17 @@ Implement each work package as a focused feature PR. Before coding a non-trivial
 
 **Exit criteria:** tests prove an over-limit request is blocked before external calls, concurrent requests cannot bypass a limit, usage is reconciled, and global limits cover both model generation and web search.
 
-### WP3 — Explicit model routing, web search, and bounded fallbacks
+### WP3 — Model-invoked web search and bounded fallbacks
 
-**Priority:** P0 — required before launch
+**Priority:** P0 — implementation in progress
 
 - Keep all model calls behind the internal AI Router; business logic must not depend on OpenRouter request/response types.
-- Keep `cheap_text` configurable for normal chat and introduce a separate configurable `web` route.
-- Search when current information is needed; avoid unnecessary searches for ordinary writing and explanations.
-- Use a verified OpenRouter-compatible web-search mechanism and a model that supports the required tool behavior.
+- Keep `cheap_text` configurable for normal chat and make model-invoked web search available through the same route; do not force a separate search route for each request.
+- Make OpenRouter's `openrouter:web_search` server tool available on normal text requests so the model can choose when current information is needed; avoid unnecessary searches for ordinary writing and explanations.
+- Prefer native provider search using the `auto` engine and its documented Exa fallback when native search is unsupported. Keep the engine configurable.
+- Cap results and reserve/reconcile separately billed search costs through the shared budget guard.
 - Include useful source URLs/titles in web-backed answers; do not claim to have searched when no search ran.
-- Cap search calls/results and ensure web-search costs pass through the same budget guard.
+- Keep search calls/results bounded and include estimated search-tool charges in the shared budget guard.
 - Configure route-specific models and bounded fallback/retry behavior for transient or availability failures. Fallbacks must support the route's requirements and remain within cost/privacy limits.
 - Avoid retrying non-transient failures blindly; prevent retry loops and unnecessary duplicate generation.
 - Add mocked contract/integration tests for search results, source-link formatting, route selection, tool/model incompatibility, provider failures, fallbacks, and cost-limit interactions.
