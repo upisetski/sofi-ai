@@ -223,6 +223,68 @@ describe('OpenRouter client', () => {
     expect(JSON.stringify(thrown)).not.toContain(body);
   });
 
+  it('captures provider errors embedded in an HTTP 200 response', async () => {
+    const body = JSON.stringify({
+      id: 'gen-embedded-error',
+      model: 'provider/model-name',
+      choices: [
+        {
+          finish_reason: 'error',
+          message: {
+            role: 'assistant',
+            content: 'private partial assistant response',
+          },
+          error: {
+            code: 429,
+            message: 'Rate limit exceeded. Prompt: second message.',
+            metadata: {
+              error_type: 'rate_limit_exceeded',
+              provider_code: 'rate_limited',
+            },
+          },
+        },
+      ],
+    });
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(body, {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    const client = createOpenRouterClient({
+      apiKey: 'test-secret',
+      fetchImpl,
+    });
+
+    let thrown: unknown;
+    try {
+      await client.generate(request);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toMatchObject({
+      kind: 'provider_response_error',
+      httpStatus: 200,
+      responseIssue: 'provider_error',
+      providerErrorCode: 429,
+      providerErrorType: 'rate_limit_exceeded',
+      providerCode: 'rate_limited',
+      providerErrorMessage: 'Rate limit exceeded. Prompt: [redacted input].',
+      providerResponseId: 'gen-embedded-error',
+      providerModel: 'provider/model-name',
+      choiceCount: 1,
+      finishReason: 'error',
+      responseContentType: 'application/json',
+      responseBodyLength: new TextEncoder().encode(body).byteLength,
+    });
+    expect(JSON.stringify(thrown)).not.toContain(
+      'private partial assistant response',
+    );
+    expect(JSON.stringify(thrown)).not.toContain('second message');
+    expect(JSON.stringify(thrown)).not.toContain('test-secret');
+  });
+
   it('describes invalid JSON responses without logging their content', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       new Response('not json', {
