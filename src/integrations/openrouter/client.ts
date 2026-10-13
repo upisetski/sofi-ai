@@ -119,7 +119,11 @@ export function createOpenRouterClient(
         isRecord(payload) && Array.isArray(payload.choices)
           ? payload.choices[0]
           : undefined;
-      if (isRecord(firstChoice) && isRecord(firstChoice.error)) {
+      if (
+        isRecord(payload) &&
+        isRecord(firstChoice) &&
+        isRecord(firstChoice.error)
+      ) {
         const finishReason = safeProviderIdentifier(
           firstChoice.finish_reason,
           64,
