@@ -7,7 +7,9 @@ Prevent runaway paid AI usage before Sofi is exposed to external users, while ma
 ## User behavior
 
 - Requests within configured limits continue to receive the normal AI response.
-- A request blocked by request-count or spend controls receives a short, localized response in Russian, Belarusian, or English. It does not call a paid provider.
+- A request blocked by a per-user daily limit receives distinct localized copy that explains the daily allowance is exhausted and indicates that the user should try after the daily reset.
+- A global daily ceiling receives a separate localized service-wide limit message; a global monthly ceiling asks the user to try again later. Neither message reveals budget amounts or model spend.
+- Missing pricing configuration uses the normal temporary-service-error copy, not a message that blames the user's quota. Denied requests do not call a paid provider.
 - Near the global ceiling, Sofi switches to economy mode by lowering the output-token cap. At a hard daily/monthly ceiling, no new paid request proceeds.
 - A previously persisted assistant reply is redelivered without reserving or recording another generation attempt.
 
@@ -58,7 +60,7 @@ Prevent runaway paid AI usage before Sofi is exposed to external users, while ma
 - [ ] Restart recovery does not release a reservation whose provider outcome could be billable.
 - [ ] A stored assistant reply can be delivered again without a second generation reservation.
 - [ ] AI-disabled paths do not invoke accounting or providers.
-- [ ] Limit responses are localized and do not expose budgets or spend.
+- [ ] Per-user daily, global daily, and global monthly denials use appropriate distinct localized copy and do not expose budget amounts; unavailable pricing is presented as a temporary service issue.
 - [ ] Logs and accounting rows contain no prompts, completions, credentials, raw provider bodies, or user-facing message text.
 - [ ] PostgreSQL integration tests cover idempotency, concurrency, isolation, limits, and recovery.
 - [ ] Roadmap/architecture documentation state only what the implementation enforces; full repository checks and Docker build pass.
