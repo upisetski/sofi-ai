@@ -519,7 +519,8 @@ export class ConversationWorker {
         await this.persistFallbackReply(
           turn,
           'usage_budget_limit',
-          getAiLimitReachedResponse(turn.locale ?? undefined, error.reason).text,
+          getAiLimitReachedResponse(turn.locale ?? undefined, error.reason)
+            .text,
         );
         this.logger.info({
           event: 'ai_request_blocked_by_usage_limit',
