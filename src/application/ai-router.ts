@@ -53,10 +53,16 @@ export type AiResponseIssue =
   | 'missing_message'
   | 'missing_content'
   | 'non_string_content'
-  | 'empty_content';
+  | 'empty_content'
+  | 'unreadable_error_body'
+  | 'invalid_error_json'
+  | 'missing_error_object';
 
 export interface AiGenerationErrorDetails {
   providerErrorCode?: string | number;
+  providerErrorType?: string;
+  providerCode?: string;
+  retryAfterSeconds?: number;
   providerErrorMessage?: string;
   responseIssue?: AiResponseIssue;
   responseContentType?: string;
@@ -72,6 +78,9 @@ export class AiGenerationError extends Error {
   readonly kind: AiErrorKind;
   readonly httpStatus?: number;
   readonly providerErrorCode?: string | number;
+  readonly providerErrorType?: string;
+  readonly providerCode?: string;
+  readonly retryAfterSeconds?: number;
   readonly providerErrorMessage?: string;
   readonly responseIssue?: AiResponseIssue;
   readonly responseContentType?: string;
@@ -93,6 +102,15 @@ export class AiGenerationError extends Error {
     if (httpStatus !== undefined) this.httpStatus = httpStatus;
     if (details.providerErrorCode !== undefined) {
       this.providerErrorCode = details.providerErrorCode;
+    }
+    if (details.providerErrorType !== undefined) {
+      this.providerErrorType = details.providerErrorType;
+    }
+    if (details.providerCode !== undefined) {
+      this.providerCode = details.providerCode;
+    }
+    if (details.retryAfterSeconds !== undefined) {
+      this.retryAfterSeconds = details.retryAfterSeconds;
     }
     if (details.providerErrorMessage !== undefined) {
       this.providerErrorMessage = details.providerErrorMessage;
@@ -151,6 +169,9 @@ export interface AiRouterLogRecord {
   category?: AiErrorKind;
   httpStatus?: number;
   providerErrorCode?: string | number;
+  providerErrorType?: string;
+  providerCode?: string;
+  retryAfterSeconds?: number;
   providerErrorMessage?: string;
   responseIssue?: AiResponseIssue;
   responseContentType?: string;
@@ -442,6 +463,15 @@ export function createAiRouter(
             : {}),
           ...(error.providerErrorCode !== undefined
             ? { providerErrorCode: error.providerErrorCode }
+            : {}),
+          ...(error.providerErrorType !== undefined
+            ? { providerErrorType: error.providerErrorType }
+            : {}),
+          ...(error.providerCode !== undefined
+            ? { providerCode: error.providerCode }
+            : {}),
+          ...(error.retryAfterSeconds !== undefined
+            ? { retryAfterSeconds: error.retryAfterSeconds }
             : {}),
           ...(error.providerErrorMessage !== undefined
             ? { providerErrorMessage: error.providerErrorMessage }
