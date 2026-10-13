@@ -193,11 +193,76 @@ describe('AI Router', () => {
         category: 'http',
         httpStatus: 404,
         providerErrorCode: 404,
+        providerErrorType: 'provider_unavailable',
+        providerCode: 'no_provider_available',
+        retryAfterSeconds: 3,
         providerErrorMessage:
           'No endpoints found matching your privacy requirements',
+        responseContentType: 'application/json',
+        responseBodyLength: 128,
+        providerResponseId: 'gen-http-error-123',
+        providerModel: 'provider/model-name',
       }),
     );
     expect(JSON.stringify(records)).not.toContain('private user text');
+  });
+
+  it('logs OpenRouter provider errors embedded in HTTP 200 responses', async () => {
+    const records: AiRouterLogRecord[] = [];
+    const logger = {
+      info: vi.fn((record: AiRouterLogRecord) => records.push(record)),
+      error: vi.fn((record: AiRouterLogRecord) => records.push(record)),
+    };
+    const providerError = new AiGenerationError(
+      'provider_response_error',
+      200,
+      {
+        responseIssue: 'provider_error',
+        providerErrorCode: 429,
+        providerErrorType: 'rate_limit_exceeded',
+        providerCode: 'rate_limited',
+        providerErrorMessage: 'Rate limit exceeded.',
+        responseContentType: 'application/json',
+        responseBodyLength: 150,
+        providerResponseId: 'gen-embedded-error',
+        providerModel: 'provider/model-name',
+        choiceCount: 1,
+        finishReason: 'error',
+      },
+    );
+    const router = createAiRouter(
+      config,
+      { generate: vi.fn().mockRejectedValue(providerError) },
+      logger,
+    );
+
+    await expect(
+      router.generate({
+        route: 'cheap_text',
+        messages: ['private prompt text'],
+      }),
+    ).rejects.toMatchObject({
+      kind: 'provider_response_error',
+      responseIssue: 'provider_error',
+    });
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'ai_generation_failed',
+        category: 'provider_response_error',
+        httpStatus: 200,
+        providerErrorCode: 429,
+        providerErrorType: 'rate_limit_exceeded',
+        providerCode: 'rate_limited',
+        responseContentType: 'application/json',
+        responseBodyLength: 150,
+        providerResponseId: 'gen-embedded-error',
+        providerModel: 'provider/model-name',
+        choiceCount: 1,
+        finishReason: 'error',
+      }),
+    );
+    expect(JSON.stringify(records)).not.toContain('private prompt text');
   });
 
   it('logs malformed response diagnostics but never logs user content', async () => {

@@ -1,5 +1,6 @@
 import {
   AiGenerationError,
+  type AiGenerationErrorDetails,
   type AiProvider,
   type AiResponseIssue,
 } from '../../application/ai-router.js';
@@ -94,6 +95,62 @@ export function createOpenRouterClient(
         });
       }
 
+      const retryAfterSeconds = parseRetryAfterSeconds(
+        response.headers.get('retry-after'),
+      );
+      if (isRecord(payload) && isRecord(payload.error)) {
+        throw new AiGenerationError(
+          'provider_response_error',
+          response.status,
+          {
+            ...responseDetails,
+            ...extractOpenRouterErrorDetails(
+              payload,
+              options.apiKey,
+              input.messages,
+            ),
+            responseIssue: 'provider_error',
+            ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+          },
+        );
+      }
+
+      const firstChoice =
+        isRecord(payload) && Array.isArray(payload.choices)
+          ? payload.choices[0]
+          : undefined;
+      if (
+        isRecord(payload) &&
+        isRecord(firstChoice) &&
+        isRecord(firstChoice.error)
+      ) {
+        const finishReason = safeProviderIdentifier(
+          firstChoice.finish_reason,
+          64,
+        );
+        const choiceCount =
+          isRecord(payload) && Array.isArray(payload.choices)
+            ? payload.choices.length
+            : undefined;
+        throw new AiGenerationError(
+          'provider_response_error',
+          response.status,
+          {
+            ...responseDetails,
+            ...extractOpenRouterErrorDetails(
+              payload,
+              options.apiKey,
+              input.messages,
+              firstChoice.error,
+            ),
+            responseIssue: 'provider_error',
+            ...(choiceCount !== undefined ? { choiceCount } : {}),
+            ...(finishReason ? { finishReason } : {}),
+            ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+          },
+        );
+      }
+
       return parseCompletion(payload, responseDetails);
     },
   };
@@ -103,29 +160,87 @@ async function readOpenRouterError(
   response: Response,
   apiKey: string,
   messages: AiProviderRequestMessages,
-): Promise<{
-  providerErrorCode?: string | number;
-  providerErrorMessage?: string;
-}> {
-  let payload: unknown;
+): Promise<AiGenerationErrorDetails> {
+  const responseContentType = normalizeContentType(
+    response.headers.get('content-type'),
+  );
+  const retryAfterSeconds = parseRetryAfterSeconds(
+    response.headers.get('retry-after'),
+  );
+
+  let responseBody: string;
   try {
-    payload = JSON.parse(await response.text());
+    responseBody = await response.text();
   } catch {
-    return {};
+    return {
+      responseIssue: 'unreadable_error_body',
+      ...(responseContentType ? { responseContentType } : {}),
+      ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+    };
   }
 
-  if (!isRecord(payload) || !isRecord(payload.error)) return {};
+  const responseDetails: AiGenerationErrorDetails = {
+    ...(responseContentType ? { responseContentType } : {}),
+    responseBodyLength: new TextEncoder().encode(responseBody).byteLength,
+    ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+  };
 
-  const providerErrorCode = normalizeProviderErrorCode(payload.error.code);
-  const rawMessage = payload.error.message;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(responseBody);
+  } catch {
+    return { ...responseDetails, responseIssue: 'invalid_error_json' };
+  }
+
+  if (!isRecord(payload) || !isRecord(payload.error)) {
+    const providerResponseId = isRecord(payload)
+      ? safeProviderIdentifier(payload.id, 128)
+      : undefined;
+    const providerModel = isRecord(payload)
+      ? safeProviderIdentifier(payload.model, 128)
+      : undefined;
+    return {
+      ...responseDetails,
+      responseIssue: 'missing_error_object',
+      ...(providerResponseId ? { providerResponseId } : {}),
+      ...(providerModel ? { providerModel } : {}),
+    };
+  }
+
+  return {
+    ...responseDetails,
+    ...extractOpenRouterErrorDetails(payload, apiKey, messages),
+  };
+}
+
+function extractOpenRouterErrorDetails(
+  payload: Record<string, unknown>,
+  apiKey: string,
+  messages: AiProviderRequestMessages,
+  errorValue: unknown = payload.error,
+): AiGenerationErrorDetails {
+  const error = isRecord(errorValue) ? errorValue : undefined;
+  if (!error) return {};
+
+  const metadata = isRecord(error.metadata) ? error.metadata : undefined;
+  const providerErrorCode = normalizeProviderErrorCode(error.code);
+  const rawMessage = error.message;
   const providerErrorMessage =
     typeof rawMessage === 'string'
       ? sanitizeProviderErrorMessage(rawMessage, apiKey, messages)
       : undefined;
+  const providerErrorType = safeProviderIdentifier(metadata?.error_type, 64);
+  const providerCode = safeProviderIdentifier(metadata?.provider_code, 64);
+  const providerResponseId = safeProviderIdentifier(payload.id, 128);
+  const providerModel = safeProviderIdentifier(payload.model, 128);
 
   return {
     ...(providerErrorCode !== undefined ? { providerErrorCode } : {}),
     ...(providerErrorMessage ? { providerErrorMessage } : {}),
+    ...(providerErrorType ? { providerErrorType } : {}),
+    ...(providerCode ? { providerCode } : {}),
+    ...(providerResponseId ? { providerResponseId } : {}),
+    ...(providerModel ? { providerModel } : {}),
   };
 }
 
@@ -143,6 +258,14 @@ function normalizeProviderErrorCode(
     return value;
   }
   return undefined;
+}
+
+function parseRetryAfterSeconds(value: string | null): number | undefined {
+  if (value === null || value.trim() === '') return undefined;
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds > 0 && seconds <= 86_400
+    ? Math.ceil(seconds)
+    : undefined;
 }
 
 function sanitizeProviderErrorMessage(

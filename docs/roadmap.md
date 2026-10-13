@@ -44,11 +44,11 @@ Already implemented on the current main branch:
 - Rolling 10-second text debounce; one reply is produced for each completed text burst.
 - Provider-neutral AI Router and OpenRouter `cheap_text` integration.
 - Configurable text model, output-token limit, and request timeout.
-- Sanitized provider errors and malformed-response diagnostics.
+- Sanitized OpenRouter HTTP and embedded provider-error diagnostics, including response shape, typed provider codes, and retry hints.
 - Automated tests for routing, mocked OpenRouter responses, debounce, and core integration behavior.
 - Railway-oriented deployment, database migrations/readiness checks, Docker build, and CI.
 
-WP1 adds persisted assistant history, bounded multi-turn context, a localized reset, and durable turn/reply delivery recovery; see the [feature specification](features/multi-turn-context-and-durable-delivery.md). WP2 adds content-free per-attempt accounting, PostgreSQL atomic reservations/reconciliation, per-user and global budget limits, a per-request cost guard, economy mode, and localized denials for the current `cheap_text` route; see [usage accounting and cost controls](features/usage-accounting-and-cost-controls.md). WP3 web search and WP4 complete product analytics/alerting remain outstanding. Web search must pass separately billed tool costs through the shared guard before it is enabled. Viber delivery cannot be guaranteed exactly once when a send outcome is ambiguous.
+WP1 adds persisted assistant history, bounded multi-turn context, a localized reset, and durable turn/reply delivery recovery; see the [feature specification](features/multi-turn-context-and-durable-delivery.md). WP2 adds content-free per-attempt accounting, PostgreSQL atomic reservations/reconciliation, per-user and global budget limits, a per-request cost guard, economy mode, and reason-specific localized denials for the current `cheap_text` route; see [usage accounting and cost controls](features/usage-accounting-and-cost-controls.md). WP3 web search and WP4 complete product analytics/alerting remain outstanding. Web search must pass separately billed tool costs through the shared guard before it is enabled. Viber delivery cannot be guaranteed exactly once when a send outcome is ambiguous.
 
 ## Prioritized work before the first external users
 

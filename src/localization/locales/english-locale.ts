@@ -4,7 +4,11 @@ export const english = {
     'Sofi - your AI assistant for everyday life. Send questions, photos, documents, or messages. I will help you figure things out, write, translate, or come up with ideas. Send /reset to clear your conversation context and start fresh.',
   aiTemporaryError:
     'I can’t prepare a response right now. Please try again shortly.',
-  aiLimitReached:
-    'I can’t process a new request right now. Please try again a little later.',
+  aiUserLimitReached:
+    'I’ve reached your daily reply allowance 🙂 Come back after the daily reset and we’ll pick up where we left off.',
+  aiGlobalDailyLimitReached:
+    'I’ve reached today’s shared reply limit. Please try again after the daily reset 🙂',
+  aiGlobalMonthlyLimitReached:
+    'I’m temporarily unable to take new requests because the service has reached its limit. Please try again later — we’ll pick up where we left off.',
   contextResetConfirmation: 'Conversation context cleared. Let’s start fresh.',
 } as const;

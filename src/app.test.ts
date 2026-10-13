@@ -14,6 +14,7 @@ import { buildApp } from './app.js';
 import { createDb, type Db } from './db/client.js';
 import { migrate } from './db/migrations.js';
 import {
+  getAiLimitReachedResponse,
   getAiTemporaryErrorResponse,
   getContextResetConfirmation,
   getWelcome,
@@ -80,6 +81,30 @@ describe('localization', () => {
   it('falls back to Russian', () => {
     expect(resolveLocale(undefined)).toBe('ru');
     expect(resolveLocale('de')).toBe('ru');
+  });
+
+  it('returns distinct, localized messages for exhausted budgets', () => {
+    expect(getAiLimitReachedResponse('en', 'user_daily_budget').text).toBe(
+      'I’ve reached your daily reply allowance 🙂 Come back after the daily reset and we’ll pick up where we left off.',
+    );
+    expect(getAiLimitReachedResponse('en', 'request_rate_limit').text).toBe(
+      'I’ve reached your daily reply allowance 🙂 Come back after the daily reset and we’ll pick up where we left off.',
+    );
+    expect(getAiLimitReachedResponse('en', 'global_daily_budget').text).toBe(
+      'I’ve reached today’s shared reply limit. Please try again after the daily reset 🙂',
+    );
+    expect(getAiLimitReachedResponse('en', 'global_monthly_budget').text).toBe(
+      'I’m temporarily unable to take new requests because the service has reached its limit. Please try again later — we’ll pick up where we left off.',
+    );
+    expect(getAiLimitReachedResponse('en', 'pricing_unavailable').text).toBe(
+      getAiTemporaryErrorResponse('en').text,
+    );
+    expect(getAiLimitReachedResponse('ru', 'user_daily_budget').text).toContain(
+      'обновления лимита',
+    );
+    expect(getAiLimitReachedResponse('be', 'global_daily_budget').text).toContain(
+      'абнаўлення ліміту',
+    );
   });
 
   it('localizes both sender name and welcome text', () => {
