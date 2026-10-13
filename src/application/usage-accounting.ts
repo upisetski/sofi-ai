@@ -8,7 +8,6 @@ export interface UsageBudgetConfig {
   outputPricePerMillionUsd: number;
   userDailyRequestLimit: number;
   userDailyBudgetUsd: number;
-  requestMaxEstimatedCostUsd: number;
   globalDailyBudgetUsd: number;
   globalMonthlyBudgetUsd: number;
   economyThresholdPercent: number;
@@ -39,7 +38,6 @@ export interface UsageReservation {
 export type UsageLimitReason =
   | 'request_rate_limit'
   | 'user_daily_budget'
-  | 'request_cost_limit'
   | 'global_daily_budget'
   | 'global_monthly_budget'
   | 'pricing_unavailable';
@@ -199,7 +197,7 @@ export class UsageAccountingService {
         (globalMonthSpend + normalEstimate) /
           this.config.globalMonthlyBudgetUsd >=
           threshold ||
-        normalEstimate > this.config.requestMaxEstimatedCostUsd;
+        false;
       if (enteringEconomy) {
         effectiveMaxOutputTokens = Math.min(
           effectiveMaxOutputTokens,
@@ -212,10 +210,6 @@ export class UsageAccountingService {
         effectiveMaxOutputTokens,
         this.config,
       );
-      if (reservationEstimate > this.config.requestMaxEstimatedCostUsd) {
-        this.logRejection(input, 'request_cost_limit');
-        throw new UsageBudgetError('request_cost_limit');
-      }
       if (userDaySpend + reservationEstimate > this.config.userDailyBudgetUsd) {
         this.logRejection(input, 'user_daily_budget');
         throw new UsageBudgetError('user_daily_budget');
