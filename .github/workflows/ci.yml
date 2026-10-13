@@ -42,6 +42,8 @@ jobs:
         run: |
           npx prettier --write src/application/job-worker.test.ts src/application/job-worker.ts src/application/viber-event-processing.test.ts
           git diff -- src/application/job-worker.test.ts src/application/job-worker.ts src/application/viber-event-processing.test.ts
+          npx prettier src/config/env.ts > /tmp/env.ts.formatted
+          diff -u src/config/env.ts /tmp/env.ts.formatted || true
       - run: npm run format:check
       - run: npm test
       - run: npm run build
