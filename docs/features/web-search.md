@@ -55,6 +55,7 @@ Give Sofi access to current information without requiring users to issue a searc
 
 - OpenRouter documents server-tool use as zero or more calls per completion and exposes `usage.server_tool_use.web_search_requests`. Its `auto` engine uses native search on supported provider endpoints and Exa otherwise. The web-search server tool is beta.
 - The default USD 0.01/search estimate is a budget guard, not a statement of the final provider price. Native search is pass-through priced; compare ledger estimates with OpenRouter billing and adjust Railway configuration if needed.
+- Parallel is available as an explicit engine and may be cheaper per request, but OpenRouter's documented `auto` mode cannot use Parallel as its secondary fallback. Pinning Parallel trades native-first behavior for a fixed search engine.
 - OpenRouter's documented fallback is for endpoints that do not support native search. This feature does not promise a second request to another engine when search execution fails at runtime.
 
 ## Data and privacy
