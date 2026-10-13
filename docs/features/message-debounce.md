@@ -44,7 +44,7 @@ Reduce the wait before Sofi responds to a completed text burst while keeping the
 
 ## Technical notes
 
-The PostgreSQL `jobs.available_at` timestamp remains the debounce timer. Ordinary messages retain the existing `GREATEST` scheduling behavior; reset commands use the earlier of the current and newly calculated eligibility times. No schema migration is needed.
+The PostgreSQL `jobs.available_at` timestamp remains the debounce timer. Ordinary messages retain the existing `GREATEST` scheduling behavior; reset commands schedule the existing job at the command's reorder-only eligibility time, bypassing a pending text debounce without skipping `REORDER_DELAY_MS`. No schema migration is needed.
 
 ## Data and privacy
 
