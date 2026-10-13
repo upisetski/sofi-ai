@@ -936,6 +936,50 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       ).toMatchObject({ rowCount: 1 });
     });
 
+    it('reserves a search-cost ceiling and reconciles estimated search fees', async () => {
+      const context = await createUsageTurn('web-search-cost');
+      const accounting = new UsageAccountingService(
+        db!,
+        budgetConfig({
+          webSearchCostPerRequestUsd: 0.01,
+          webSearchMaxRequests: 5,
+        }),
+      );
+      const reservation = await accounting.reserve(reservationInput(context));
+      expect(reservation.reservedUsd).toBeGreaterThan(0.05);
+
+      await accounting.markInFlight(context);
+      await accounting.reconcileSuccess(
+        context,
+        {
+          promptTokens: 10,
+          completionTokens: 5,
+          totalTokens: 15,
+          costUsd: 0.000004,
+          webSearchRequests: 2,
+        },
+        12,
+      );
+
+      const settled = await db!.query<{
+        reservation_state: string;
+        cost_kind: string;
+        estimated_cost_usd: string;
+        cost_provenance: string;
+      }>(
+        `SELECT reservation_state, cost_kind, estimated_cost_usd::text,
+                cost_provenance
+         FROM ai_usage_attempts WHERE turn_id = $1`,
+        [context.turnId],
+      );
+      expect(settled.rows[0]).toMatchObject({
+        reservation_state: 'settled',
+        cost_kind: 'estimated',
+        estimated_cost_usd: '0.020004000000',
+        cost_provenance: 'openrouter_model_cost_plus_estimated_search_cost',
+      });
+    });
+
     it('records an estimated cost when tokens exist but provider cost is missing', async () => {
       const context = await createUsageTurn('estimated');
       const accounting = new UsageAccountingService(db!, budgetConfig());

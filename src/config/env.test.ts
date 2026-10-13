@@ -65,6 +65,13 @@ describe('environment configuration', () => {
     expect(config.AI_MODEL_CHEAP_TEXT).toBe('openai/gpt-6-luna');
     expect(config.OPENROUTER_REQUIRE_ZDR).toBe(true);
     expect(config.OPENROUTER_DATA_COLLECTION_POLICY).toBe('deny');
+    expect(config.AI_WEB_SEARCH_ENABLED).toBe(true);
+    expect(config.AI_WEB_SEARCH_ENGINE).toBe('auto');
+    expect(config.AI_WEB_SEARCH_MAX_RESULTS).toBe(5);
+    expect(config.AI_WEB_SEARCH_MAX_TOTAL_RESULTS).toBe(5);
+    expect(config.AI_WEB_SEARCH_CONTEXT_SIZE).toBe('low');
+    expect(config.AI_WEB_SEARCH_COST_PER_REQUEST_USD).toBe(0.01);
+    expect(config.AI_WEB_SEARCH_MAX_REQUESTS).toBe(5);
     expect(config.AI_MAX_OUTPUT_TOKENS).toBe(512);
     expect(config.AI_REQUEST_TIMEOUT_MS).toBe(30000);
     expect(config.AI_USAGE_PRICING_MODEL).toBe('openai/gpt-6-luna');
@@ -86,6 +93,9 @@ describe('environment configuration', () => {
       AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD: '0.8',
       OPENROUTER_REQUIRE_ZDR: 'false',
       OPENROUTER_DATA_COLLECTION_POLICY: 'allow',
+      AI_WEB_SEARCH_ENABLED: 'false',
+      AI_WEB_SEARCH_ENGINE: 'parallel',
+      AI_WEB_SEARCH_COST_PER_REQUEST_USD: '0.02',
     });
     expect(config.AI_MODEL_CHEAP_TEXT).toBe('custom/model');
     expect(config.AI_USAGE_PRICING_MODEL).toBe('custom/model');
@@ -93,6 +103,9 @@ describe('environment configuration', () => {
     expect(config.AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD).toBe(0.8);
     expect(config.OPENROUTER_REQUIRE_ZDR).toBe(false);
     expect(config.OPENROUTER_DATA_COLLECTION_POLICY).toBe('allow');
+    expect(config.AI_WEB_SEARCH_ENABLED).toBe(false);
+    expect(config.AI_WEB_SEARCH_ENGINE).toBe('parallel');
+    expect(config.AI_WEB_SEARCH_COST_PER_REQUEST_USD).toBe(0.02);
   });
 
   it('rejects invalid privacy policy settings', () => {
@@ -101,6 +114,12 @@ describe('environment configuration', () => {
     ).toThrow();
     expect(() =>
       parseEnv({ ...baseEnv, OPENROUTER_DATA_COLLECTION_POLICY: 'unknown' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_WEB_SEARCH_ENGINE: 'unknown' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, AI_WEB_SEARCH_MAX_RESULTS: '0' }),
     ).toThrow();
   });
 

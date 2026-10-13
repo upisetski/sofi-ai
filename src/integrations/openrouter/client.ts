@@ -12,6 +12,12 @@ interface OpenRouterClientOptions {
   fetchImpl?: typeof fetch;
   requireZdr?: boolean;
   dataCollectionPolicy?: 'deny' | 'allow';
+  webSearchEnabled?: boolean;
+  webSearchEngine?: 'auto' | 'native' | 'exa' | 'parallel' | 'perplexity';
+  webSearchMaxResults?: number;
+  webSearchMaxTotalResults?: number;
+  webSearchMaxRequests?: number;
+  webSearchContextSize?: 'low' | 'medium' | 'high';
 }
 
 interface ResponseDiagnostics {
@@ -44,6 +50,24 @@ export function createOpenRouterClient(
               zdr: options.requireZdr ?? true,
               data_collection: options.dataCollectionPolicy ?? 'deny',
             },
+            ...((options.webSearchEnabled ?? true)
+              ? {
+                  max_tool_calls: options.webSearchMaxRequests ?? 5,
+                  tools: [
+                    {
+                      type: 'openrouter:web_search',
+                      parameters: {
+                        engine: options.webSearchEngine ?? 'auto',
+                        max_results: options.webSearchMaxResults ?? 5,
+                        max_total_results:
+                          options.webSearchMaxTotalResults ?? 5,
+                        search_context_size:
+                          options.webSearchContextSize ?? 'low',
+                      },
+                    },
+                  ],
+                }
+              : {}),
           }),
           signal: AbortSignal.timeout(input.timeoutMs),
         });
@@ -354,6 +378,7 @@ function parseCompletion(
     completionTokens?: number;
     totalTokens?: number;
     costUsd?: number;
+    webSearchRequests?: number;
   } = {};
 
   if (isRecord(payload.usage)) {
@@ -363,11 +388,22 @@ function parseCompletion(
     );
     const totalTokens = nonNegativeInteger(payload.usage.total_tokens);
     const costUsd = nonNegativeNumber(payload.usage.cost);
+    const serverToolUse = isRecord(payload.usage.server_tool_use)
+      ? payload.usage.server_tool_use
+      : undefined;
+    const rawWebSearchRequests = serverToolUse?.web_search_requests;
+    const webSearchRequests = nonNegativeInteger(rawWebSearchRequests);
     if (promptTokens !== undefined) usage.promptTokens = promptTokens;
     if (completionTokens !== undefined)
       usage.completionTokens = completionTokens;
     if (totalTokens !== undefined) usage.totalTokens = totalTokens;
     if (costUsd !== undefined) usage.costUsd = costUsd;
+    if (webSearchRequests !== undefined) {
+      usage.webSearchRequests = webSearchRequests;
+    } else if (rawWebSearchRequests !== undefined) {
+      // Preserve malformed metadata as invalid so accounting retains its hold.
+      usage.webSearchRequests = -1;
+    }
   }
 
   const providerGenerationId = safeProviderIdentifier(payload.id, 128);

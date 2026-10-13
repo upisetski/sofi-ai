@@ -21,6 +21,7 @@ export interface AiUsage {
   completionTokens?: number;
   totalTokens?: number;
   costUsd?: number;
+  webSearchRequests?: number;
 }
 
 export interface AiGenerationResult {
@@ -242,7 +243,9 @@ export function buildAiMessages(
     'Be warm, concise, natural, and useful.',
     'The conversation history is ordered from oldest to newest.',
     'Use prior user and assistant turns to understand references in the latest user message(s).',
-    'Never imply browsing or external access unless the information was actually supplied.',
+    'Use web search when current facts or reliable sources are needed; avoid unnecessary search for ordinary writing.',
+    'When using web search, include useful source URLs. Never claim to have searched if no search was performed.',
+    'Prefer search queries in the user’s language, including Russian and Belarusian.',
   ].join(' ');
 
   return [
