@@ -819,8 +819,7 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       inputPricePerMillionUsd: 0.05,
       outputPricePerMillionUsd: 0.1,
       userDailyRequestLimit: 50,
-      userDailyBudgetUsd: 0.1,
-      requestMaxEstimatedCostUsd: 0.01,
+      userDailyBudgetUsd: 0.2,
       globalDailyBudgetUsd: 2,
       globalMonthlyBudgetUsd: 30,
       economyThresholdPercent: 80,
@@ -1303,20 +1302,16 @@ describe.skipIf(!databaseUrl)('conversation worker', () => {
       expect(rows.rows[0]?.count).toBe(1);
     });
 
-    it('rejects an over-cost request before provider invocation and does not duplicate attempts', async () => {
-      const context = await createUsageTurn('request-cost-limit');
-      const accounting = new UsageAccountingService(
-        db!,
-        budgetConfig({ requestMaxEstimatedCostUsd: 0.000001 }),
-      );
+    it('allows a request above the former per-request cap when daily and global budgets cover it', async () => {
+      const context = await createUsageTurn('request-within-daily-budget');
+      const accounting = new UsageAccountingService(db!, budgetConfig());
+
       await expect(
         accounting.reserve(reservationInput(context, 512)),
-      ).rejects.toMatchObject({ reason: 'request_cost_limit' });
-      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject(
-        {
-          rowCount: 0,
-        },
-      );
+      ).resolves.toMatchObject({ economyMode: false });
+      expect(await db!.query('SELECT id FROM ai_usage_attempts')).toMatchObject({
+        rowCount: 1,
+      });
     });
 
     it('enforces per-user daily spending independently of the global budget', async () => {
