@@ -41,7 +41,12 @@ export interface AiProvider {
 }
 
 export type AiErrorKind =
-  'configuration' | 'http' | 'timeout' | 'network' | 'malformed_response';
+  | 'configuration'
+  | 'http'
+  | 'timeout'
+  | 'network'
+  | 'malformed_response'
+  | 'provider_response_error';
 
 export type AiResponseIssue =
   | 'invalid_json'
@@ -56,7 +61,8 @@ export type AiResponseIssue =
   | 'empty_content'
   | 'unreadable_error_body'
   | 'invalid_error_json'
-  | 'missing_error_object';
+  | 'missing_error_object'
+  | 'provider_error';
 
 export interface AiGenerationErrorDetails {
   providerErrorCode?: string | number;
