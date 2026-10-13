@@ -17,7 +17,6 @@ const usageAccounting = new UsageAccountingService(db, {
   outputPricePerMillionUsd: env.AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD,
   userDailyRequestLimit: env.AI_USER_DAILY_REQUEST_LIMIT,
   userDailyBudgetUsd: env.AI_USER_DAILY_BUDGET_USD,
-  requestMaxEstimatedCostUsd: env.AI_REQUEST_MAX_ESTIMATED_COST_USD,
   globalDailyBudgetUsd: env.AI_GLOBAL_DAILY_BUDGET_USD,
   globalMonthlyBudgetUsd: env.AI_GLOBAL_MONTHLY_BUDGET_USD,
   economyThresholdPercent: env.AI_ECONOMY_THRESHOLD_PERCENT,
