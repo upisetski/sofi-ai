@@ -96,6 +96,7 @@ describe('environment configuration', () => {
       AI_WEB_SEARCH_ENABLED: 'false',
       AI_WEB_SEARCH_ENGINE: 'parallel',
       AI_WEB_SEARCH_COST_PER_REQUEST_USD: '0.02',
+      AI_WEB_SEARCH_MAX_REQUESTS: '1',
     });
     expect(config.AI_MODEL_CHEAP_TEXT).toBe('custom/model');
     expect(config.AI_USAGE_PRICING_MODEL).toBe('custom/model');
@@ -106,6 +107,7 @@ describe('environment configuration', () => {
     expect(config.AI_WEB_SEARCH_ENABLED).toBe(false);
     expect(config.AI_WEB_SEARCH_ENGINE).toBe('parallel');
     expect(config.AI_WEB_SEARCH_COST_PER_REQUEST_USD).toBe(0.02);
+    expect(config.AI_WEB_SEARCH_MAX_REQUESTS).toBe(1);
   });
 
   it('rejects invalid privacy policy settings', () => {
