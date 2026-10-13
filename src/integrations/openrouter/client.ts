@@ -95,6 +95,9 @@ export function createOpenRouterClient(
         });
       }
 
+      const retryAfterSeconds = parseRetryAfterSeconds(
+        response.headers.get('retry-after'),
+      );
       if (isRecord(payload) && isRecord(payload.error)) {
         throw new AiGenerationError(
           'provider_response_error',
@@ -107,14 +110,39 @@ export function createOpenRouterClient(
               input.messages,
             ),
             responseIssue: 'provider_error',
-            ...(parseRetryAfterSeconds(response.headers.get('retry-after')) !==
-            undefined
-              ? {
-                  retryAfterSeconds: parseRetryAfterSeconds(
-                    response.headers.get('retry-after'),
-                  ),
-                }
-              : {}),
+            ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+          },
+        );
+      }
+
+      const firstChoice =
+        isRecord(payload) && Array.isArray(payload.choices)
+          ? payload.choices[0]
+          : undefined;
+      if (isRecord(firstChoice) && isRecord(firstChoice.error)) {
+        const finishReason = safeProviderIdentifier(
+          firstChoice.finish_reason,
+          64,
+        );
+        const choiceCount =
+          isRecord(payload) && Array.isArray(payload.choices)
+            ? payload.choices.length
+            : undefined;
+        throw new AiGenerationError(
+          'provider_response_error',
+          response.status,
+          {
+            ...responseDetails,
+            ...extractOpenRouterErrorDetails(
+              payload,
+              options.apiKey,
+              input.messages,
+              firstChoice.error,
+            ),
+            responseIssue: 'provider_error',
+            ...(choiceCount !== undefined ? { choiceCount } : {}),
+            ...(finishReason ? { finishReason } : {}),
+            ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
           },
         );
       }
@@ -185,8 +213,9 @@ function extractOpenRouterErrorDetails(
   payload: Record<string, unknown>,
   apiKey: string,
   messages: AiProviderRequestMessages,
+  errorValue: unknown = payload.error,
 ): AiGenerationErrorDetails {
-  const error = isRecord(payload.error) ? payload.error : undefined;
+  const error = isRecord(errorValue) ? errorValue : undefined;
   if (!error) return {};
 
   const metadata = isRecord(error.metadata) ? error.metadata : undefined;
