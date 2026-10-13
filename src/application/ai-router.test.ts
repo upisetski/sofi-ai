@@ -193,8 +193,15 @@ describe('AI Router', () => {
         category: 'http',
         httpStatus: 404,
         providerErrorCode: 404,
+        providerErrorType: 'provider_unavailable',
+        providerCode: 'no_provider_available',
+        retryAfterSeconds: 3,
         providerErrorMessage:
           'No endpoints found matching your privacy requirements',
+        responseContentType: 'application/json',
+        responseBodyLength: 128,
+        providerResponseId: 'gen-http-error-123',
+        providerModel: 'provider/model-name',
       }),
     );
     expect(JSON.stringify(records)).not.toContain('private user text');
