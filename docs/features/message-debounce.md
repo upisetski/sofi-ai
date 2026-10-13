@@ -76,4 +76,4 @@ No new logging or metrics are needed. Existing webhook/job processing observabil
 - [x] Documentation updated where needed
 - [ ] ADR added if a significant architectural decision was made
 - [ ] Full local checks pass
-- [ ] Focused PR opened
+- [x] Focused PR opened
