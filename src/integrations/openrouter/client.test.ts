@@ -71,11 +71,21 @@ describe('OpenRouter client', () => {
   });
 
   it('allows explicit privacy policy overrides for deployment configuration', async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(successResponse());
-    const client = createOpenRouterClient({ apiKey: 'test-openrouter-secret', requireZdr: false, dataCollectionPolicy: 'allow', fetchImpl });
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(successResponse());
+    const client = createOpenRouterClient({
+      apiKey: 'test-openrouter-secret',
+      requireZdr: false,
+      dataCollectionPolicy: 'allow',
+      fetchImpl,
+    });
     await client.generate(request);
     const [, init] = fetchImpl.mock.calls[0] ?? [];
-    expect(JSON.parse(String(init?.body)).provider).toEqual({ zdr: false, data_collection: 'allow' });
+    expect(JSON.parse(String(init?.body)).provider).toEqual({
+      zdr: false,
+      data_collection: 'allow',
+    });
   });
 
   it('preserves a successful response when the provider omits usage metadata', async () => {
