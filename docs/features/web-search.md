@@ -18,6 +18,7 @@ Give Sofi access to current information without requiring users to issue a searc
 - OpenRouter's `openrouter:web_search` server tool on normal text requests.
 - `auto` as the default engine: native provider search where supported, Exa fallback when unsupported.
 - Configurable engine, result limits, context size, and a conservative search-cost reservation.
+- A strict configured search-use cap via the server tool's `max_uses`, backed by the top-level `max_tool_calls` limit and disabled parallel tool calls.
 - Parsing the reported search-request count and reconciling an estimated search-tool cost through the existing usage ledger.
 - Tests for request shape, tool usage parsing, config validation, and budget accounting behavior.
 
@@ -32,6 +33,7 @@ Give Sofi access to current information without requiring users to issue a searc
 
 - Include the search tool in AI requests when enabled; let the model decide whether to call it.
 - Default to engine `auto`, five results, five total results, and low context.
+- Send `max_uses` equal to the configured maximum search requests. Also set top-level `max_tool_calls` to the same maximum and disable parallel tool calls so native providers that ignore `max_uses` are still bounded by the server-tool loop.
 - Keep provider selection and tool protocol details inside the OpenRouter integration.
 - Reserve model-generation cost plus the configured per-search maximum before the request. The default reservation is up to five searches at USD 0.01 each.
 - Read `usage.server_tool_use.web_search_requests` when present and apply the configured estimated per-search cost in reconciliation. If usage needed for safe reconciliation is missing, retain the existing conservative reservation.
@@ -45,6 +47,7 @@ Give Sofi access to current information without requiring users to issue a searc
 - [x] The default engine is native-first `auto`, falling back to Exa when native search is unsupported.
 - [x] Search can be disabled through configuration.
 - [x] Result count and context size are bounded.
+- [x] Search requests are capped with `max_uses`, a matching top-level tool-call budget, and no parallel tool calls.
 - [x] Search request counts are parsed without logging search queries or content.
 - [x] Reservations include the configured maximum possible search-tool cost.
 - [x] Reconciliation adds estimated search cost to model cost and records the cost as estimated when search was used.
@@ -54,6 +57,7 @@ Give Sofi access to current information without requiring users to issue a searc
 ## Technical notes
 
 - OpenRouter documents server-tool use as zero or more calls per completion and exposes `usage.server_tool_use.web_search_requests`. Its `auto` engine uses native search on supported provider endpoints and Exa otherwise. The web-search server tool is beta.
+- `max_uses` limits searches on supported engines and is forwarded to Anthropic native search; other native providers may ignore it. The adapter therefore also sets top-level `max_tool_calls` to the same cap and `parallel_tool_calls: false`, so the server-tool loop has a one-search-per-step budget on providers that ignore `max_uses`.
 - The default USD 0.01/search estimate is a budget guard, not a statement of the final provider price. Native search is pass-through priced; compare ledger estimates with OpenRouter billing and adjust Railway configuration if needed.
 - Parallel is available as an explicit engine and may be cheaper per request, but OpenRouter's documented `auto` mode cannot use Parallel as its secondary fallback. Pinning Parallel trades native-first behavior for a fixed search engine.
 - OpenRouter's documented fallback is for endpoints that do not support native search. This feature does not promise a second request to another engine when search execution fails at runtime.

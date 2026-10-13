@@ -67,11 +67,13 @@ describe('OpenRouter client', () => {
       max_tokens: 512,
       provider: { zdr: true, data_collection: 'deny' },
       max_tool_calls: 5,
+      parallel_tool_calls: false,
       tools: [
         {
           type: 'openrouter:web_search',
           parameters: {
             engine: 'auto',
+            max_uses: 5,
             max_results: 5,
             max_total_results: 5,
             search_context_size: 'low',
@@ -80,6 +82,29 @@ describe('OpenRouter client', () => {
       ],
     });
     expect(init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('enforces the configured web-search cap in both OpenRouter limits', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(successResponse());
+    const client = createOpenRouterClient({
+      apiKey: 'test-key',
+      webSearchMaxRequests: 1,
+      fetchImpl,
+    });
+
+    await client.generate(request);
+    const [, init] = fetchImpl.mock.calls[0] ?? [];
+    const body = JSON.parse(String(init?.body)) as {
+      max_tool_calls?: number;
+      parallel_tool_calls?: boolean;
+      tools?: Array<{ parameters?: { max_uses?: number } }>;
+    };
+
+    expect(body.max_tool_calls).toBe(1);
+    expect(body.parallel_tool_calls).toBe(false);
+    expect(body.tools?.[0]?.parameters?.max_uses).toBe(1);
   });
 
   it('parses the number of server web-search requests', async () => {
