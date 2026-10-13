@@ -85,13 +85,13 @@ describe('localization', () => {
 
   it('returns distinct, localized messages for exhausted budgets', () => {
     expect(getAiLimitReachedResponse('en', 'user_daily_budget').text).toBe(
-      'I’ve reached your daily message allowance for now. Come back tomorrow and we’ll pick up where we left off 🙂',
+      'I’ve reached your daily reply allowance 🙂 Come back after the daily reset and we’ll pick up where we left off.',
     );
     expect(getAiLimitReachedResponse('en', 'request_rate_limit').text).toBe(
-      'I’ve reached your daily message allowance for now. Come back tomorrow and we’ll pick up where we left off 🙂',
+      'I’ve reached your daily reply allowance 🙂 Come back after the daily reset and we’ll pick up where we left off.',
     );
     expect(getAiLimitReachedResponse('en', 'global_daily_budget').text).toBe(
-      'Looks like I’ve reached today’s reply limit. Let’s pick this up tomorrow 🙂',
+      'I’ve reached today’s shared reply limit. Please try again after the daily reset 🙂',
     );
     expect(getAiLimitReachedResponse('en', 'global_monthly_budget').text).toBe(
       'I’m temporarily unable to take new requests because the service has reached its limit. Please try again later — we’ll pick up where we left off.',
@@ -100,10 +100,10 @@ describe('localization', () => {
       getAiTemporaryErrorResponse('en').text,
     );
     expect(getAiLimitReachedResponse('ru', 'user_daily_budget').text).toContain(
-      'завтра',
+      'обновления лимита',
     );
     expect(getAiLimitReachedResponse('be', 'global_daily_budget').text).toContain(
-      'заўтра',
+      'абнаўлення ліміту',
     );
   });
 
