@@ -241,7 +241,7 @@ async function wakeJob(
           ELSE jobs.status
         END,
         available_at = CASE
-          WHEN $4 THEN LEAST(jobs.available_at, EXCLUDED.available_at)
+          WHEN $4 THEN EXCLUDED.available_at
           ELSE GREATEST(jobs.available_at, EXCLUDED.available_at)
         END,
         completed_at = CASE
