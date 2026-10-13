@@ -196,8 +196,7 @@ export class UsageAccountingService {
           threshold ||
         (globalMonthSpend + normalEstimate) /
           this.config.globalMonthlyBudgetUsd >=
-          threshold ||
-        false;
+          threshold;
       if (enteringEconomy) {
         effectiveMaxOutputTokens = Math.min(
           effectiveMaxOutputTokens,
