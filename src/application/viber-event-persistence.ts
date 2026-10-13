@@ -2,10 +2,11 @@ import type { PoolClient } from 'pg';
 
 import { withTransaction, type Db } from '../db/client.js';
 import type { ViberCallback } from '../integrations/viber/schemas.js';
+import { isContextResetCommand } from './conversation-commands.js';
 
 const provider = 'viber';
 const jobType = 'process_conversation';
-const defaultMessageDebounceMs = 10000;
+const defaultMessageDebounceMs = 5000;
 
 export interface AcceptedEvent {
   eventId: string;
@@ -61,8 +62,20 @@ function getProviderEventId(callback: ViberCallback): string {
   return String(callback.message_token);
 }
 
+function isContextResetMessage(callback: ViberCallback): boolean {
+  return (
+    callback.event === 'message' &&
+    callback.message.type === 'text' &&
+    isContextResetCommand(callback.message.text)
+  );
+}
+
 function isTextMessage(callback: ViberCallback): boolean {
-  return callback.event === 'message' && callback.message.type === 'text';
+  return (
+    callback.event === 'message' &&
+    callback.message.type === 'text' &&
+    !isContextResetMessage(callback)
+  );
 }
 
 function getAvailableAt(
@@ -146,6 +159,7 @@ export async function acceptViberCallback(
       };
     }
 
+    const contextResetMessage = isContextResetMessage(callback);
     const textMessage = isTextMessage(callback);
 
     const nextPosition = Number(conversation.last_event_position) + 1;
@@ -197,6 +211,7 @@ export async function acceptViberCallback(
         reorderDelayMs,
         messageDebounceMs,
       ),
+      contextResetMessage,
     );
 
     return {
@@ -211,6 +226,7 @@ async function wakeJob(
   client: PoolClient,
   conversationId: string,
   availableAt: Date,
+  bypassDebounce: boolean,
 ): Promise<void> {
   await client.query(
     `
@@ -224,7 +240,10 @@ async function wakeJob(
           WHEN jobs.status IN ('completed', 'failed') THEN 'pending'
           ELSE jobs.status
         END,
-        available_at = GREATEST(jobs.available_at, EXCLUDED.available_at),
+        available_at = CASE
+          WHEN $4 THEN LEAST(jobs.available_at, EXCLUDED.available_at)
+          ELSE GREATEST(jobs.available_at, EXCLUDED.available_at)
+        END,
         completed_at = CASE
           WHEN jobs.status IN ('completed', 'failed') THEN NULL
           ELSE jobs.completed_at
@@ -234,6 +253,6 @@ async function wakeJob(
           ELSE jobs.last_error
         END
     `,
-    [jobType, conversationId, availableAt],
+    [jobType, conversationId, availableAt, bypassDebounce],
   );
 }
