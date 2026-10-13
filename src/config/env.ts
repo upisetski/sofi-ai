@@ -22,7 +22,10 @@ export const envSchema = z
       z.string().min(1).optional(),
     ),
     AI_MODEL_CHEAP_TEXT: z.string().min(1).default('openai/gpt-6-luna'),
-    OPENROUTER_REQUIRE_ZDR: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
+    OPENROUTER_REQUIRE_ZDR: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
     OPENROUTER_DATA_COLLECTION_POLICY: z.enum(['deny', 'allow']).default('deny'),
     AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(8192).default(512),
     AI_REQUEST_TIMEOUT_MS: z.coerce
