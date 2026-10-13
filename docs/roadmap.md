@@ -1,7 +1,7 @@
 # Sofi MVP Roadmap
 
 **Status:** agreed product and engineering plan  
-**Updated:** 2026-10-10  
+**Updated:** 2026-10-13  
 **Scope:** first release to external users
 
 This is the single prioritized checklist for reaching the first user-facing MVP. Feature specifications in `docs/features/` define implementation details and acceptance criteria; this file records release scope, order, dependencies, and release gates. Do not treat a roadmap item as implemented until code, tests, and its feature specification agree.
@@ -48,7 +48,7 @@ Already implemented on the current main branch:
 - Automated tests for routing, mocked OpenRouter responses, debounce, and core integration behavior.
 - Railway-oriented deployment, database migrations/readiness checks, Docker build, and CI.
 
-WP1 adds persisted assistant history, bounded multi-turn context, a localized reset, and durable turn/reply delivery recovery; see the [feature specification](features/multi-turn-context-and-durable-delivery.md). WP2 adds content-free per-attempt accounting, PostgreSQL atomic reservations/reconciliation, per-user and global budget limits, a per-request cost guard, economy mode, and reason-specific localized denials for the current `cheap_text` route; see [usage accounting and cost controls](features/usage-accounting-and-cost-controls.md). WP3 web search and WP4 complete product analytics/alerting remain outstanding. Web search must pass separately billed tool costs through the shared guard before it is enabled. Viber delivery cannot be guaranteed exactly once when a send outcome is ambiguous.
+WP1 adds persisted assistant history, bounded multi-turn context, a localized reset, and durable turn/reply delivery recovery; see the [feature specification](features/multi-turn-context-and-durable-delivery.md). WP2 adds content-free per-attempt accounting, PostgreSQL atomic reservations/reconciliation, per-user and global budget limits, a per-request cost guard, economy mode, and reason-specific localized denials for the current `cheap_text` route; see [usage accounting and cost controls](features/usage-accounting-and-cost-controls.md). WP3's native-first, model-invoked OpenRouter search integration has been merged; bounded route-specific fallback behavior and pre-launch search validation remain outstanding. WP4 production observability and product analytics/alerting remain outstanding. Search must not be enabled for external users until separately billed tool costs are safely guarded and provider/search privacy and billing have been verified. Viber delivery cannot be guaranteed exactly once when a send outcome is ambiguous.
 
 ## Prioritized work before the first external users
 
@@ -86,19 +86,19 @@ Implement each work package as a focused feature PR. Before coding a non-trivial
 
 ### WP3 — Model-invoked web search and bounded fallbacks
 
-**Priority:** P0 — implementation in progress
+**Priority:** P0 — native-first search integration merged; remaining acceptance work is a release blocker
 
 - Keep all model calls behind the internal AI Router; business logic must not depend on OpenRouter request/response types.
 - Keep `cheap_text` configurable for normal chat and make model-invoked web search available through the same route; do not force a separate search route for each request.
-- Make OpenRouter's `openrouter:web_search` server tool available on normal text requests so the model can choose when current information is needed; avoid unnecessary searches for ordinary writing and explanations.
-- Prefer native provider search using the `auto` engine and its documented Exa fallback when native search is unsupported. Keep the engine configurable.
-- Cap results and reserve/reconcile separately billed search costs through the shared budget guard.
-- Include useful source URLs/titles in web-backed answers; do not claim to have searched when no search ran.
-- Keep search calls/results bounded and include estimated search-tool charges in the shared budget guard.
+- [x] Make OpenRouter's `openrouter:web_search` server tool available on normal text requests so the model can choose when current information is needed; avoid unnecessary searches for ordinary writing and explanations.
+- [x] Prefer native provider search using the `auto` engine and its documented Exa fallback when native search is unsupported. Keep the engine configurable.
+- [x] Cap results and reserve/reconcile separately billed search costs through the shared budget guard.
+- [ ] Verify useful source URLs/titles in web-backed answers and ensure the assistant does not claim to have searched when no search ran.
+- [x] Keep search calls/results bounded and include estimated search-tool charges in the shared budget guard.
 - Configure route-specific models and bounded fallback/retry behavior for transient or availability failures. Fallbacks must support the route's requirements and remain within cost/privacy limits.
 - Avoid retrying non-transient failures blindly; prevent retry loops and unnecessary duplicate generation.
 - Add mocked contract/integration tests for search results, source-link formatting, route selection, tool/model incompatibility, provider failures, fallbacks, and cost-limit interactions.
-- Verify current provider/tool contracts and privacy/data-handling implications before implementation; do not assume every model/provider supports web search.
+- [ ] Verify effective provider/search privacy and data handling before rollout; do not assume every model/provider supports web search.
 
 **Exit criteria:** ordinary requests use the text route; current-information requests use the web route and return source links; route failures are observable and terminate within configured limits.
 
