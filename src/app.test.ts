@@ -102,9 +102,9 @@ describe('localization', () => {
     expect(getAiLimitReachedResponse('ru', 'user_daily_budget').text).toContain(
       'обновления лимита',
     );
-    expect(getAiLimitReachedResponse('be', 'global_daily_budget').text).toContain(
-      'абнаўлення ліміту',
-    );
+    expect(
+      getAiLimitReachedResponse('be', 'global_daily_budget').text,
+    ).toContain('абнаўлення ліміту');
   });
 
   it('localizes both sender name and welcome text', () => {
