@@ -41,14 +41,14 @@ Give Sofi access to current information without requiring users to issue a searc
 
 ## Acceptance criteria
 
-- [ ] OpenRouter requests include the configurable server search tool by default.
-- [ ] The default engine is native-first `auto`, falling back to Exa when native search is unsupported.
-- [ ] Search can be disabled through configuration.
-- [ ] Result count and context size are bounded.
-- [ ] Search request counts are parsed without logging search queries or content.
-- [ ] Reservations include the configured maximum possible search-tool cost.
-- [ ] Reconciliation adds estimated search cost to model cost and records the cost as estimated when search was used.
-- [ ] Missing usage does not silently release a potentially billable reservation.
+- [x] OpenRouter requests include the configurable server search tool by default.
+- [x] The default engine is native-first `auto`, falling back to Exa when native search is unsupported.
+- [x] Search can be disabled through configuration.
+- [x] Result count and context size are bounded.
+- [x] Search request counts are parsed without logging search queries or content.
+- [x] Reservations include the configured maximum possible search-tool cost.
+- [x] Reconciliation adds estimated search cost to model cost and records the cost as estimated when search was used.
+- [x] Missing usage does not silently release a potentially billable reservation.
 - [ ] Russian and Belarusian query quality and actual OpenRouter billing are manually evaluated before external rollout.
 
 ## Technical notes
