@@ -211,7 +211,7 @@ The repository already includes:
 - Viber webhook validation and event processing
 - PostgreSQL schema and migrations
 - PostgreSQL-backed background jobs
-- message ordering and 10-second text debounce
+- message ordering and configurable 5-second text debounce; `/reset` and `/forget` bypass the debounce delay
 - OpenRouter-backed AI text responses with localized failure handling
 - sanitized OpenRouter error diagnostics
 - localized responses
