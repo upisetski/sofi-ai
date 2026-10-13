@@ -78,7 +78,15 @@ describe('environment configuration', () => {
   });
 
   it('allows Railway overrides for model, pricing, and privacy settings', () => {
-    const config = parseEnv({ ...baseEnv, AI_MODEL_CHEAP_TEXT: 'custom/model', AI_USAGE_PRICING_MODEL: 'custom/model', AI_USAGE_INPUT_PRICE_PER_MILLION_USD: '0.2', AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD: '0.8', OPENROUTER_REQUIRE_ZDR: 'false', OPENROUTER_DATA_COLLECTION_POLICY: 'allow' });
+    const config = parseEnv({
+      ...baseEnv,
+      AI_MODEL_CHEAP_TEXT: 'custom/model',
+      AI_USAGE_PRICING_MODEL: 'custom/model',
+      AI_USAGE_INPUT_PRICE_PER_MILLION_USD: '0.2',
+      AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD: '0.8',
+      OPENROUTER_REQUIRE_ZDR: 'false',
+      OPENROUTER_DATA_COLLECTION_POLICY: 'allow',
+    });
     expect(config.AI_MODEL_CHEAP_TEXT).toBe('custom/model');
     expect(config.AI_USAGE_PRICING_MODEL).toBe('custom/model');
     expect(config.AI_USAGE_INPUT_PRICE_PER_MILLION_USD).toBe(0.2);
@@ -88,8 +96,12 @@ describe('environment configuration', () => {
   });
 
   it('rejects invalid privacy policy settings', () => {
-    expect(() => parseEnv({ ...baseEnv, OPENROUTER_REQUIRE_ZDR: 'sometimes' })).toThrow();
-    expect(() => parseEnv({ ...baseEnv, OPENROUTER_DATA_COLLECTION_POLICY: 'unknown' })).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, OPENROUTER_REQUIRE_ZDR: 'sometimes' }),
+    ).toThrow();
+    expect(() =>
+      parseEnv({ ...baseEnv, OPENROUTER_DATA_COLLECTION_POLICY: 'unknown' }),
+    ).toThrow();
   });
 
   it('rejects invalid budget and price configuration', () => {
