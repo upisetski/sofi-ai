@@ -248,7 +248,6 @@ Current PostgreSQL persistence covers users, conversations, inbound events, user
 Every current `cheap_text` provider call goes through the AI Router with a stable internal user ID, conversation ID, durable turn ID, and WP1 generation-attempt number. The router builds the bounded provider messages, reserves a conservative cost bound in PostgreSQL, marks the attempt in-flight, and only then calls OpenRouter. The application enforces:
 
 - Per-user daily provider-attempt count and daily spend.
-- Per-request estimated-cost maximum.
 - Global UTC daily and monthly spend ceilings, including held/uncertain reservations.
 - Economy mode at the configured `AI_ECONOMY_THRESHOLD_PERCENT` (default 80%) of projected global daily/monthly spend, limiting output to `AI_ECONOMY_MAX_OUTPUT_TOKENS` (default 256) or the normal token cap, whichever is lower.
 - Fail-closed behavior for unknown model pricing and budget denial, with localized user-facing copy.
