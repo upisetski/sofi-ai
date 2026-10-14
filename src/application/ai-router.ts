@@ -24,8 +24,14 @@ export interface AiUsage {
   webSearchRequests?: number;
 }
 
+export interface AiSource {
+  title: string;
+  url: string;
+}
+
 export interface AiGenerationResult {
   text: string;
+  sources?: AiSource[];
   providerGenerationId?: string;
   usage?: AiUsage;
 }
@@ -244,7 +250,7 @@ export function buildAiMessages(
     'The conversation history is ordered from oldest to newest.',
     'Use prior user and assistant turns to understand references in the latest user message(s).',
     'Use web search when current facts or reliable sources are needed; avoid unnecessary search for ordinary writing.',
-    'When using web search, include useful source URLs. Never claim to have searched if no search was performed.',
+    'When using web search, include useful source titles and URLs. Never claim to have searched if no search was performed.',
     'Prefer search queries in the user’s language, including Russian and Belarusian.',
   ].join(' ');
 
@@ -328,6 +334,80 @@ function boundMessages(messages: string[], maxInputChars: number): string[] {
   return bounded;
 }
 
+function sanitizeCitationTitle(value: unknown, fallback: string): string {
+  const sanitized = [...(typeof value === 'string' ? value : '')]
+    .map((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127 ? ' ' : character;
+    })
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+
+  return sanitized || fallback;
+}
+
+const MAX_RENDERED_AI_SOURCES = 5;
+
+function selectAppendableSources(
+  sources: AiSource[] | undefined,
+  answerText: string,
+): AiSource[] {
+  const selected: AiSource[] = [];
+  const seen = new Set<string>();
+
+  for (const source of sources ?? []) {
+    if (typeof source.url !== 'string') continue;
+    const url = source.url.trim();
+    if (!url) continue;
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      continue;
+    }
+
+    if (
+      (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') ||
+      !parsedUrl.hostname ||
+      parsedUrl.username ||
+      parsedUrl.password
+    ) {
+      continue;
+    }
+
+    const canonicalUrl = parsedUrl.toString();
+    if (seen.has(canonicalUrl) || answerText.includes(url)) continue;
+    seen.add(canonicalUrl);
+
+    const title = sanitizeCitationTitle(source.title, parsedUrl.hostname);
+
+    selected.push({ title, url });
+    if (selected.length >= MAX_RENDERED_AI_SOURCES) break;
+  }
+
+  return selected;
+}
+
+function appendSourceLinks(
+  answerText: string,
+  sources: AiSource[],
+  language?: string,
+): string {
+  if (sources.length === 0) return answerText;
+
+  const locale = resolveLocale(language);
+  const label =
+    locale === 'ru' ? 'Источники' : locale === 'be' ? 'Крыніцы' : 'Sources';
+  const sourceLines = sources.map(
+    (source) => `- ${source.title} — ${source.url}`,
+  );
+
+  return `${answerText}\n\n${label}:\n${sourceLines.join('\n')}`;
+}
+
 export function createAiRouter(
   config: AiRouterConfig,
   provider: AiProvider,
@@ -406,6 +486,8 @@ export function createAiRouter(
 
         const text = result.text.trim();
         if (!text) throw new AiGenerationError('malformed_response');
+        const sources = selectAppendableSources(result.sources, text);
+        const responseText = appendSourceLinks(text, sources, input.language);
 
         logger.info({
           event: 'ai_generation_succeeded',
@@ -427,7 +509,13 @@ export function createAiRouter(
             : {}),
         });
 
-        return { ...result, text };
+        const normalizedResult = { ...result };
+        delete normalizedResult.sources;
+        return {
+          ...normalizedResult,
+          text: responseText,
+          ...(sources.length > 0 ? { sources } : {}),
+        };
       } catch (cause) {
         const error =
           cause instanceof AiGenerationError

@@ -136,6 +136,69 @@ describe('OpenRouter client', () => {
     });
   });
 
+  it('extracts safe, unique source links from OpenRouter URL-citation annotations', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: 'Current information summary',
+                annotations: [
+                  {
+                    type: 'url_citation',
+                    url_citation: {
+                      url: 'https://example.com/news',
+                      title: '  Example\n News  ',
+                    },
+                  },
+                  {
+                    type: 'url_citation',
+                    url_citation: {
+                      url: 'https://example.com/news',
+                      title: 'Duplicate title',
+                    },
+                  },
+                  {
+                    type: 'url_citation',
+                    url_citation: {
+                      url: 'javascript:alert(1)',
+                      title: 'Unsafe source',
+                    },
+                  },
+                  {
+                    type: 'url_citation',
+                    url_citation: {
+                      url: 'https://user:secret@example.org/private',
+                      title: 'Credentials must be rejected',
+                    },
+                  },
+                  {
+                    type: 'url_citation',
+                    url_citation: { url: 'https://example.org/report' },
+                  },
+                ],
+              },
+            },
+          ],
+          usage: { server_tool_use: { web_search_requests: 1 } },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl });
+
+    await expect(client.generate(request)).resolves.toMatchObject({
+      text: 'Current information summary',
+      usage: { webSearchRequests: 1 },
+      sources: [
+        { title: 'Example News', url: 'https://example.com/news' },
+        { title: 'example.org', url: 'https://example.org/report' },
+      ],
+    });
+  });
+
   it('can disable web search explicitly', async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
