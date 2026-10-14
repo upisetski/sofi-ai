@@ -254,7 +254,7 @@ export function buildAiMessages(
   ].join(' ');
   const dynamicContext = [
     `Answer in ${localeNames[locale]}.`,
-    `Current date (UTC): ${new Date().toISOString().slice(0, 10)}.`,
+    `Current date (UTC): ${new Date().toISOString().slice(0, 10)}. Use it as the reference for relative dates.`,
   ].join(' ');
   const systemPrompt = `${stableSystemPrompt} ${dynamicContext}`;
 
