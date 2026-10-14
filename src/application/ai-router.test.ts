@@ -93,7 +93,7 @@ describe('AI Router', () => {
       text: 'Current update: https://already.example/article',
       sources: [
         { title: 'Already included', url: 'https://already.example/article' },
-        { title: '  Trusted\\n source  ', url: 'https://source.example/report' },
+        { title: '  Trusted\n source  ', url: 'https://source.example/report' },
         { title: 'Duplicate', url: 'https://source.example/report' },
         { title: 'Unsafe protocol', url: 'javascript:alert(1)' },
         { title: 'Credentials', url: 'https://user:secret@private.example/' },
@@ -108,7 +108,7 @@ describe('AI Router', () => {
     });
 
     expect(result.text).toBe(
-      `Current update: https://already.example/article\\n\\n${label}:\\n- Trusted source — https://source.example/report`,
+      `Current update: https://already.example/article\n\n${label}:\n- Trusted source — https://source.example/report`,
     );
     expect(result.sources).toEqual([
       { title: 'Trusted source', url: 'https://source.example/report' },

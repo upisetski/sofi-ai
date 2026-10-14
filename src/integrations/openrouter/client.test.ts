@@ -150,7 +150,7 @@ describe('OpenRouter client', () => {
                     type: 'url_citation',
                     url_citation: {
                       url: 'https://example.com/news',
-                      title: '  Example\\n News  ',
+                      title: '  Example\n News  ',
                     },
                   },
                   {

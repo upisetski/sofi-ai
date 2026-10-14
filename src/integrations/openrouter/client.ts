@@ -367,8 +367,8 @@ function parseUrlCitations(value: unknown): AiSource[] {
     const title =
       typeof citation.title === 'string'
         ? citation.title
-            .replace(/[\\u0000-\\u001f\\u007f]/g, ' ')
-            .replace(/\\s+/g, ' ')
+            .replace(/[\u0000-\u001f\u007f]/g, ' ')
+            .replace(/\s+/g, ' ')
             .trim()
             .slice(0, 200)
         : '';

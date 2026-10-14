@@ -370,8 +370,8 @@ function selectAppendableSources(
 
     const title =
       (typeof source.title === 'string' ? source.title : '')
-        .replace(/[\\u0000-\\u001f\\u007f]/g, ' ')
-        .replace(/\\s+/g, ' ')
+        .replace(/[\u0000-\u001f\u007f]/g, ' ')
+        .replace(/\s+/g, ' ')
         .trim()
         .slice(0, 200) || parsedUrl.hostname;
 
@@ -396,7 +396,7 @@ function appendSourceLinks(
     (source) => `- ${source.title} — ${source.url}`,
   );
 
-  return `${answerText}\\n\\n${label}:\\n${sourceLines.join('\\n')}`;
+  return `${answerText}\n\n${label}:\n${sourceLines.join('\n')}`;
 }
 
 export function createAiRouter(
