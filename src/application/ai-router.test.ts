@@ -57,6 +57,14 @@ describe('AI Router', () => {
     );
   });
 
+  it('includes Sofi name variants in English, Russian, and Belarusian', () => {
+    const systemPrompt = buildAiMessages(['hello'], 'en')[0]?.content ?? '';
+
+    expect(systemPrompt).toContain(
+      'You are Sofi (Софи in Russian, Софі in Belarusian), an AI assistant, not a human.',
+    );
+  });
+
   it('adds the current UTC date after the stable prompt instructions', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-02-03T23:30:00.000Z'));
