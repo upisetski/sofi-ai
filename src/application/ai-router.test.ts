@@ -57,6 +57,35 @@ describe('AI Router', () => {
     );
   });
 
+  it('adds the current UTC date after the stable prompt instructions', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-02-03T23:30:00.000Z'));
+
+    try {
+      const russianPrompt = buildAiMessages(['question'], 'ru')[0]?.content ?? '';
+      const belarusianPrompt =
+        buildAiMessages(['пытанне'], 'be')[0]?.content ?? '';
+      const russianLocaleIndex = russianPrompt.indexOf('Answer in Russian.');
+      const belarusianLocaleIndex =
+        belarusianPrompt.indexOf('Answer in Belarusian.');
+
+      expect(russianPrompt).toContain('Current date (UTC): 2024-02-03.');
+      expect(russianPrompt.indexOf('Prefer search queries')).toBeLessThan(
+        russianLocaleIndex,
+      );
+      expect(russianLocaleIndex).toBeGreaterThanOrEqual(0);
+      expect(belarusianLocaleIndex).toBeGreaterThanOrEqual(0);
+      expect(
+        russianPrompt.slice(0, russianLocaleIndex),
+      ).toBe(belarusianPrompt.slice(0, belarusianLocaleIndex));
+      expect(
+        russianPrompt.indexOf('Current date (UTC):'),
+      ).toBeGreaterThan(russianLocaleIndex);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('builds a Russian prompt when the locale resolves to Russian', () => {
     const messages = buildAiMessages(['first', 'second'], 'ru');
 
