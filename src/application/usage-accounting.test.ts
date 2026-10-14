@@ -70,7 +70,7 @@ describe('UsageAccountingService', () => {
     );
 
     expect(finalization).toContain(
-      "started_at < NOW() - INTERVAL '24 hours'",
+      "completed_at < NOW() - INTERVAL '24 hours'",
     );
     expect(finalization).toContain(
       'estimated_cost_usd = GREATEST(reserved_usd, initial_reserved_usd)',
