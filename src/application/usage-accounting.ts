@@ -599,7 +599,7 @@ export class UsageAccountingService {
            cost_kind = 'estimated',
            cost_provenance = 'conservative_reservation_after_ambiguous_outcome'
        WHERE reservation_state = 'uncertain'
-         AND started_at < NOW() - INTERVAL '24 hours'`,
+         AND completed_at < NOW() - INTERVAL '24 hours'`,
     );
 
     if (
