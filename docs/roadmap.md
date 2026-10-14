@@ -1,7 +1,7 @@
 # Sofi MVP Roadmap
 
 **Status:** agreed product and engineering plan  
-**Updated:** 2026-10-13  
+**Updated:** 2026-10-14  
 **Scope:** first release to external users
 
 This is the single prioritized checklist for reaching the first user-facing MVP. Feature specifications in `docs/features/` define implementation details and acceptance criteria; this file records release scope, order, dependencies, and release gates. Do not treat a roadmap item as implemented until code, tests, and its feature specification agree.
@@ -49,6 +49,33 @@ Already implemented on the current main branch:
 - Railway-oriented deployment, database migrations/readiness checks, Docker build, and CI.
 
 WP1 adds persisted assistant history, bounded multi-turn context, a localized reset, and durable turn/reply delivery recovery; see the [feature specification](features/multi-turn-context-and-durable-delivery.md). WP2 adds content-free per-attempt accounting, PostgreSQL atomic reservations/reconciliation, per-user and global budget limits, a per-request cost guard, economy mode, and reason-specific localized denials for the current `cheap_text` route; see [usage accounting and cost controls](features/usage-accounting-and-cost-controls.md). WP3's native-first, model-invoked OpenRouter search integration has been merged; bounded route-specific fallback behavior and pre-launch search validation remain outstanding. WP4 production observability and product analytics/alerting remain outstanding. Search must not be enabled for external users until separately billed tool costs are safely guarded and provider/search privacy and billing have been verified. Viber delivery cannot be guaranteed exactly once when a send outcome is ambiguous.
+
+## Next recommended moves — start here
+
+The durable context and usage-accounting foundations (WP1/WP2) are already on the current main branch. Do not restart those work packages by default; verify them as part of the release checks below and reopen implementation only if a test exposes a gap. The remaining launch blockers should be closed in this order:
+
+1. **Finish WP3 web-search acceptance (P0).**
+   - Test representative Russian and Belarusian current-information queries, confirm useful source titles/URLs, and verify that Sofi never claims to have searched when no search was performed.
+   - Exercise unsupported-model/tool combinations, transient failures, bounded retries/fallbacks, and budget-denied cases.
+   - Compare usage-ledger search-cost estimates with actual OpenRouter billing and adjust conservative configuration as needed.
+   - Keep `AI_WEB_SEARCH_ENABLED=false` in Railway for external users until search acceptance, cost accounting, and privacy checks pass.
+
+2. **Make WP4 operational visibility real (P0).**
+   - Trigger a test exception and verify it arrives in the configured error-reporting system; a DSN alone is not sufficient.
+   - Confirm sanitized signals cover route/model, success/failure, latency/timeouts, fallback/search use, Viber delivery outcomes, cost, and budget denials.
+   - Add a practical alert/response procedure for elevated failures, delivery problems, and spend approaching limits. Keep analytics content-free and define retention.
+
+3. **Close WP5 user copy, privacy, and production setup (P0).**
+   - Review every supported locale's welcome/help text: promise only text and web capabilities, provide a few example prompts, and make `/reset`/`/forget` discoverable. Do not promise photo or document processing.
+   - Verify the effective OpenRouter provider and web-search data-handling settings separately; document the user's external AI processing disclosure and content-retention behavior.
+   - Configure an OpenRouter account-level spend cap, verify database backup/restore expectations, and document how to disable AI and roll back safely.
+
+4. **Run the production-like end-to-end release gate (P0).**
+   - Use synthetic content with production-like Viber, PostgreSQL, model, and search configuration.
+   - Cover multi-turn follow-ups, reset/forget, duplicate webhooks, restart/recovery, search citations, provider failures, timeouts, budget exhaustion, uncertain provider outcomes, and Viber delivery failures.
+   - Pass the repository's full checks and Docker build. Do not enable the pilot if any release gate below is unchecked.
+
+This order is intended to get the existing MVP safely in front of users quickly, not to add more infrastructure or new modalities before the current scope is validated.
 
 ## Prioritized work before the first external users
 
@@ -143,6 +170,19 @@ Do not enable external users until every item is satisfied:
 - [ ] Effective provider and search privacy settings have been verified; user disclosure and retention rules are documented.
 - [ ] Welcome/help copy matches the actual text + web capabilities.
 - [ ] Production-like end-to-end tests pass, CI is green, and rollback/AI-disable steps are documented.
+
+## Invited pilot and learning plan
+
+Start the pilot only after every release gate above is satisfied. A practical starting point is **15–25 invited users for 1–2 weeks**; treat the cohort size and duration as an initial experiment, not as a product requirement.
+
+- Ask participants to use Sofi for real everyday tasks rather than only following scripted examples.
+- Before inviting users, write down what results would justify continuing, fixing reliability, or pausing rollout. Avoid deciding success only after seeing the results.
+- Review first successful request, returning users and D1/D7 retention, follow-up rate, task categories (write/rewrite/explain/ideas/web/other), search usage, failure rate, response latency, and AI cost per active user.
+- Talk to participants who stop using Sofi as well as those who return. Find the specific jobs they tried, what failed, and what would make them use it again.
+- Keep analytics privacy-conscious: use event and cost metadata, not full prompts or completions. Handle any direct user feedback under the documented retention/privacy rules.
+- Use pilot evidence to choose the next product investment. Do not start image, voice, document, long-term-memory, dashboard, or infrastructure work merely because it is technically possible.
+
+**Pilot exit decision:** summarize findings, reliability/cost risks, the strongest repeated use cases, and a prioritized next backlog item before broadening access.
 
 ## After the MVP
 
