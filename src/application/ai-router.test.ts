@@ -62,7 +62,8 @@ describe('AI Router', () => {
     vi.setSystemTime(new Date('2024-02-03T23:30:00.000Z'));
 
     try {
-      const russianPrompt = buildAiMessages(['question'], 'ru')[0]?.content ?? '';
+      const russianPrompt =
+        buildAiMessages(['question'], 'ru')[0]?.content ?? '';
       const belarusianPrompt =
         buildAiMessages(['пытанне'], 'be')[0]?.content ?? '';
       const russianLocaleIndex = russianPrompt.indexOf('Answer in Russian.');
