@@ -20,7 +20,8 @@ Give Sofi access to current information without requiring users to issue a searc
 - Configurable engine, result limits, context size, and a conservative search-cost reservation.
 - A strict configured search-use cap via the server tool's `max_uses`, backed by the top-level `max_tool_calls` limit and disabled parallel tool calls.
 - Parsing the reported search-request count and reconciling an estimated search-tool cost through the existing usage ledger.
-- Tests for request shape, tool usage parsing, config validation, and budget accounting behavior.
+- Parsing validated OpenRouter URL-citation annotations and rendering localized source titles/URLs when they are not already in the answer.
+- Tests for request shape, source annotations, tool usage parsing, config validation, and budget accounting behavior.
 
 ### Out of scope
 
@@ -35,6 +36,8 @@ Give Sofi access to current information without requiring users to issue a searc
 - Default to engine `auto`, five results, five total results, and low context.
 - Send `max_uses` equal to the configured maximum search requests. Also set top-level `max_tool_calls` to the same maximum and disable parallel tool calls so native providers that ignore `max_uses` are still bounded by the server-tool loop.
 - Keep provider selection and tool protocol details inside the OpenRouter integration.
+- Accept only deduplicated HTTP(S) citation URLs without embedded credentials; sanitize titles and ignore malformed annotations or unsafe schemes.
+- Render up to five annotation-backed sources under a localized `Sources` / `Источники` / `Крыніцы` label, unless their URLs are already present in the answer text.
 - Reserve model-generation cost plus the configured per-search maximum before the request. The default reservation is up to five searches at USD 0.01 each.
 - Read `usage.server_tool_use.web_search_requests` when present and apply the configured estimated per-search cost in reconciliation. If usage needed for safe reconciliation is missing, retain the existing conservative reservation.
 - Keep all search charges within the existing per-user and global daily/monthly budgets.
@@ -52,6 +55,7 @@ Give Sofi access to current information without requiring users to issue a searc
 - [x] Reservations include the configured maximum possible search-tool cost.
 - [x] Reconciliation adds estimated search cost to model cost and records the cost as estimated when search was used.
 - [x] Missing usage does not silently release a potentially billable reservation.
+- [x] Valid source annotations are rendered as localized source titles/URLs without duplicating links already present in the answer.
 - [ ] Russian and Belarusian query quality and actual OpenRouter billing are manually evaluated before external rollout.
 
 ## Technical notes
@@ -76,7 +80,7 @@ Give Sofi access to current information without requiring users to issue a searc
 
 ## Testing
 
-- Unit: tool request construction, enabled/disabled behavior, usage metadata parsing, malformed/missing search counts, and config validation.
+- Unit: tool request construction, enabled/disabled behavior, citation parsing/sanitization, localized source rendering, usage metadata parsing, malformed/missing search counts, and config validation.
 - Accounting: worst-case search reservation, no-search reconciliation, search cost reconciliation, and missing-usage reservation retention.
 - Manual: representative Russian and Belarusian current-events, local-information, and general web queries; verify links, latency, and actual billing.
 

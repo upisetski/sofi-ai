@@ -3,6 +3,7 @@ import {
   type AiGenerationErrorDetails,
   type AiProvider,
   type AiResponseIssue,
+  type AiSource,
 } from '../../application/ai-router.js';
 
 const CHAT_COMPLETIONS_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -324,6 +325,60 @@ function sanitizeProviderErrorMessage(
   return safeMessage || undefined;
 }
 
+function parseUrlCitations(value: unknown): AiSource[] {
+  if (!Array.isArray(value)) return [];
+
+  const sources: AiSource[] = [];
+  const seen = new Set<string>();
+
+  for (const annotationValue of value) {
+    if (!isRecord(annotationValue) || annotationValue.type !== 'url_citation') {
+      continue;
+    }
+
+    const citation = isRecord(annotationValue.url_citation)
+      ? annotationValue.url_citation
+      : annotationValue;
+    if (typeof citation.url !== 'string') continue;
+
+    const url = citation.url.trim();
+    if (!url) continue;
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      continue;
+    }
+
+    if (
+      (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') ||
+      !parsedUrl.hostname ||
+      parsedUrl.username ||
+      parsedUrl.password
+    ) {
+      continue;
+    }
+
+    const canonicalUrl = parsedUrl.toString();
+    if (seen.has(canonicalUrl)) continue;
+    seen.add(canonicalUrl);
+
+    const title =
+      typeof citation.title === 'string'
+        ? citation.title
+            .replace(/[\\u0000-\\u001f\\u007f]/g, ' ')
+            .replace(/\\s+/g, ' ')
+            .trim()
+            .slice(0, 200)
+        : '';
+    sources.push({ title: title || parsedUrl.hostname, url });
+    if (sources.length >= 10) break;
+  }
+
+  return sources;
+}
+
 function parseCompletion(
   payload: unknown,
   responseDetails: ResponseDiagnostics,
@@ -409,11 +464,13 @@ function parseCompletion(
   }
 
   const providerGenerationId = safeProviderIdentifier(payload.id, 128);
+  const sources = parseUrlCitations(choice.message.annotations);
 
   return {
     text: content.trim(),
     ...(providerGenerationId ? { providerGenerationId } : {}),
     ...(Object.keys(usage).length > 0 ? { usage } : {}),
+    ...(sources.length > 0 ? { sources } : {}),
   };
 }
 
