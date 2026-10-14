@@ -373,7 +373,9 @@ describe('Viber webhook', () => {
       const resetDeadline = resetJob.rows[0]?.available_at.getTime();
       expect(resetDeadline).toBeDefined();
       if (resetDeadline === undefined) {
-        throw new Error('Expected the reset command to keep a conversation job');
+        throw new Error(
+          'Expected the reset command to keep a conversation job',
+        );
       }
       expect(resetDeadline).toBeLessThan(initialDeadline - 3000);
       expect(resetDeadline).toBeGreaterThan(Date.now() + 500);
