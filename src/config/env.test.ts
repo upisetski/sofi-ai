@@ -62,6 +62,7 @@ describe('environment configuration', () => {
     const config = parseEnv({ ...baseEnv, NODE_ENV: 'test' });
 
     expect(config.AI_ENABLED).toBe(true);
+    expect(config.MESSAGE_DEBOUNCE_MS).toBe(5000);
     expect(config.AI_MODEL_CHEAP_TEXT).toBe('openai/gpt-6-luna');
     expect(config.OPENROUTER_REQUIRE_ZDR).toBe(true);
     expect(config.OPENROUTER_DATA_COLLECTION_POLICY).toBe('deny');
@@ -88,6 +89,7 @@ describe('environment configuration', () => {
     const config = parseEnv({
       ...baseEnv,
       AI_MODEL_CHEAP_TEXT: 'custom/model',
+      MESSAGE_DEBOUNCE_MS: '7500',
       AI_USAGE_PRICING_MODEL: 'custom/model',
       AI_USAGE_INPUT_PRICE_PER_MILLION_USD: '0.2',
       AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD: '0.8',
@@ -99,6 +101,7 @@ describe('environment configuration', () => {
       AI_WEB_SEARCH_MAX_REQUESTS: '1',
     });
     expect(config.AI_MODEL_CHEAP_TEXT).toBe('custom/model');
+    expect(config.MESSAGE_DEBOUNCE_MS).toBe(7500);
     expect(config.AI_USAGE_PRICING_MODEL).toBe('custom/model');
     expect(config.AI_USAGE_INPUT_PRICE_PER_MILLION_USD).toBe(0.2);
     expect(config.AI_USAGE_OUTPUT_PRICE_PER_MILLION_USD).toBe(0.8);

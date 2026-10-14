@@ -185,6 +185,8 @@ NODE_ENV=production
 PORT=<provided by Railway>
 HOST=0.0.0.0
 DATABASE_URL=\${{Postgres.DATABASE_URL}}
+REORDER_DELAY_MS=1000
+MESSAGE_DEBOUNCE_MS=5000
 VIBER_AUTH_TOKEN=...
 AI_ENABLED=true
 OPENROUTER_API_KEY=...
@@ -211,7 +213,7 @@ The repository already includes:
 - Viber webhook validation and event processing
 - PostgreSQL schema and migrations
 - PostgreSQL-backed background jobs
-- message ordering and 10-second text debounce
+- message ordering and configurable 5-second text debounce; `/reset` and `/forget` bypass the debounce delay
 - OpenRouter-backed AI text responses with localized failure handling
 - sanitized OpenRouter error diagnostics
 - localized responses

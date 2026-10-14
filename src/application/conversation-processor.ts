@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 
 import type { Db } from '../db/client.js';
 import { getContextResetConfirmation } from '../localization/index.js';
+import { isContextResetCommand } from './conversation-commands.js';
 
 export interface ProcessedEvent {
   id: string;
@@ -35,8 +36,6 @@ interface TurnSegment {
   turnId?: string;
 }
 
-const resetCommands = new Set(['/reset', '/forget']);
-
 function getText(payloadValue: unknown): string | null {
   if (!payloadValue || typeof payloadValue !== 'object') return null;
 
@@ -51,10 +50,6 @@ function getText(payloadValue: unknown): string | null {
   }
 
   return payload.message.text;
-}
-
-function isContextResetCommand(text: string): boolean {
-  return resetCommands.has(text.trim().toLocaleLowerCase('en-US'));
 }
 
 function makeSegments(

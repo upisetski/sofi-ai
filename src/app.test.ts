@@ -298,6 +298,94 @@ describe('Viber webhook', () => {
   );
 
   it.skipIf(!databaseUrl)(
+    'bypasses a pending text debounce when a context reset command arrives',
+    async () => {
+      process.env.VIBER_AUTH_TOKEN = authToken;
+      const app = buildApp({
+        db: requireTestDb(),
+        reorderDelayMs: 1000,
+        messageDebounceMs: 5000,
+      });
+
+      const firstBody = JSON.stringify({
+        event: 'message',
+        timestamp: 1457764197627,
+        message_token: 241256543217,
+        sender: {
+          id: '01234567890A==',
+          language: 'be',
+        },
+        message: {
+          type: 'text',
+          text: 'hello',
+        },
+      });
+      const firstResponse = await app.inject({
+        method: 'POST',
+        url: '/viber/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-viber-content-signature': sign(firstBody),
+        },
+        payload: firstBody,
+      });
+      expect(firstResponse.statusCode).toBe(200);
+
+      const initialJob = await requireTestDb().query<{ available_at: Date }>(
+        'SELECT available_at FROM jobs WHERE type = $1',
+        ['process_conversation'],
+      );
+      const initialDeadline = initialJob.rows[0]?.available_at.getTime();
+      expect(initialDeadline).toBeDefined();
+      if (initialDeadline === undefined) {
+        throw new Error('Expected a pending conversation job');
+      }
+      expect(initialDeadline).toBeGreaterThan(Date.now() + 3000);
+
+      const resetBody = JSON.stringify({
+        event: 'message',
+        timestamp: 1457764198627,
+        message_token: 241256543218,
+        sender: {
+          id: '01234567890A==',
+          language: 'be',
+        },
+        message: {
+          type: 'text',
+          text: '/reset',
+        },
+      });
+      const resetResponse = await app.inject({
+        method: 'POST',
+        url: '/viber/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-viber-content-signature': sign(resetBody),
+        },
+        payload: resetBody,
+      });
+      expect(resetResponse.statusCode).toBe(200);
+
+      const resetJob = await requireTestDb().query<{ available_at: Date }>(
+        'SELECT available_at FROM jobs WHERE type = $1',
+        ['process_conversation'],
+      );
+      const resetDeadline = resetJob.rows[0]?.available_at.getTime();
+      expect(resetDeadline).toBeDefined();
+      if (resetDeadline === undefined) {
+        throw new Error(
+          'Expected the reset command to keep a conversation job',
+        );
+      }
+      expect(resetDeadline).toBeLessThan(initialDeadline - 3000);
+      expect(resetDeadline).toBeGreaterThan(Date.now() + 500);
+      expect(resetDeadline).toBeLessThanOrEqual(Date.now() + 1500);
+
+      await app.close();
+    },
+  );
+
+  it.skipIf(!databaseUrl)(
     'does not respond immediately to rapid messages',
     async () => {
       process.env.VIBER_AUTH_TOKEN = authToken;
@@ -312,7 +400,7 @@ describe('Viber webhook', () => {
       const app = buildApp({
         db: requireTestDb(),
         reorderDelayMs: 0,
-        messageDebounceMs: 10000,
+        messageDebounceMs: 5000,
       });
 
       const firstBody = JSON.stringify({
