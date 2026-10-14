@@ -585,11 +585,42 @@ export class UsageAccountingService {
        WHERE reservation_state = 'in_flight'
          AND started_at < NOW() - INTERVAL '10 minutes'`,
     );
-    if ((released.rowCount ?? 0) > 0 || (uncertain.rowCount ?? 0) > 0) {
+
+    // A timed-out/network-interrupted call cannot be reconciled to actual provider
+    // usage when OpenRouter never returned a generation ID. Keep its full cost
+    // bound held for 24 hours, then finalize it at that same conservative amount.
+    // This never releases potentially billable spend; it only closes the unknown
+    // reservation lifecycle and makes the conservative estimate explicit.
+    const finalizedUncertain = await client.query(
+      `UPDATE ai_usage_attempts
+       SET reservation_state = 'settled',
+           estimated_cost_usd = GREATEST(reserved_usd, initial_reserved_usd),
+           reserved_usd = 0,
+           cost_kind = 'estimated',
+           cost_provenance = 'conservative_reservation_after_ambiguous_outcome'
+       WHERE reservation_state = 'uncertain'
+         AND started_at < NOW() - INTERVAL '24 hours'`,
+    );
+
+    if (
+      (released.rowCount ?? 0) > 0 ||
+      (uncertain.rowCount ?? 0) > 0 ||
+      (finalizedUncertain.rowCount ?? 0) > 0
+    ) {
       this.logger.info({
         event: 'ai_usage_reservations_recovered',
         released: released.rowCount ?? 0,
         uncertain: uncertain.rowCount ?? 0,
+        finalizedUncertain: finalizedUncertain.rowCount ?? 0,
+      });
+    }
+
+    if ((finalizedUncertain.rowCount ?? 0) > 0) {
+      this.logger.info({
+        event: 'ai_usage_uncertain_reservations_finalized',
+        count: finalizedUncertain.rowCount ?? 0,
+        costKind: 'estimated',
+        costProvenance: 'conservative_reservation_after_ambiguous_outcome',
       });
     }
   }
