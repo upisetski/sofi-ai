@@ -75,8 +75,9 @@ describe('AI Router', () => {
       const belarusianPrompt =
         buildAiMessages(['пытанне'], 'be')[0]?.content ?? '';
       const russianLocaleIndex = russianPrompt.indexOf('Answer in Russian.');
-      const belarusianLocaleIndex =
-        belarusianPrompt.indexOf('Answer in Belarusian.');
+      const belarusianLocaleIndex = belarusianPrompt.indexOf(
+        'Answer in Belarusian.',
+      );
 
       expect(russianPrompt).toContain('Current date (UTC): 2024-02-03.');
       expect(russianPrompt.indexOf('Prefer search queries')).toBeLessThan(
