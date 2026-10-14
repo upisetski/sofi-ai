@@ -67,25 +67,20 @@ describe('AI Router', () => {
     ]);
   });
 
-  it(
-    'keeps the source-citation and truthful-search rules in the system prompt',
-    () => {
-      const systemPrompt = buildAiMessages(
-        ['Какая сейчас ситуация?'],
-        'ru',
-      )[0]?.content;
+  it('keeps the source-citation and truthful-search rules in the system prompt', () => {
+    const systemPrompt = buildAiMessages(['Какая сейчас ситуация?'], 'ru')[0]
+      ?.content;
 
-      expect(systemPrompt).toContain(
-        'When using web search, include useful source titles and URLs.',
-      );
-      expect(systemPrompt).toContain(
-        'Never claim to have searched if no search was performed.',
-      );
-      expect(systemPrompt).toContain(
-        'Prefer search queries in the user’s language, including Russian and Belarusian.',
-      );
-    },
-  );
+    expect(systemPrompt).toContain(
+      'When using web search, include useful source titles and URLs.',
+    );
+    expect(systemPrompt).toContain(
+      'Never claim to have searched if no search was performed.',
+    );
+    expect(systemPrompt).toContain(
+      'Prefer search queries in the user’s language, including Russian and Belarusian.',
+    );
+  });
 
   it.each([
     { language: 'ru', label: 'Источники' },
@@ -98,7 +93,10 @@ describe('AI Router', () => {
         text: 'Current update: https://already.example/article',
         sources: [
           { title: 'Already included', url: 'https://already.example/article' },
-          { title: '  Trusted\n source  ', url: 'https://source.example/report' },
+          {
+            title: '  Trusted\n source  ',
+            url: 'https://source.example/report',
+          },
           { title: 'Duplicate', url: 'https://source.example/report' },
           { title: 'Unsafe protocol', url: 'javascript:alert(1)' },
           { title: 'Credentials', url: 'https://user:secret@private.example/' },
@@ -121,22 +119,19 @@ describe('AI Router', () => {
     },
   );
 
-  it(
-    'does not add source links when the provider returns no citation annotations',
-    async () => {
-      const generate = vi.fn().mockResolvedValue({
-        text: 'No web search was needed.',
-      });
-      const router = createAiRouter(config, { generate });
+  it('does not add source links when the provider returns no citation annotations', async () => {
+    const generate = vi.fn().mockResolvedValue({
+      text: 'No web search was needed.',
+    });
+    const router = createAiRouter(config, { generate });
 
-      await expect(
-        router.generate({
-          route: 'cheap_text',
-          messages: ['Write a greeting.'],
-        }),
-      ).resolves.toEqual({ text: 'No web search was needed.' });
-    },
-  );
+    await expect(
+      router.generate({
+        route: 'cheap_text',
+        messages: ['Write a greeting.'],
+      }),
+    ).resolves.toEqual({ text: 'No web search was needed.' });
+  });
 
   it('inserts recent user and assistant context in chronological order before the current burst', () => {
     const messages = buildAiMessages(
