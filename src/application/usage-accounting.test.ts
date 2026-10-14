@@ -1,4 +1,4 @@
-import type { Pool, PoolClient } from 'pg';
+import type { Pool } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -80,6 +80,13 @@ describe('UsageAccountingService', () => {
     expect(finalization).toContain("cost_kind = 'estimated'");
     expect(finalization).toContain(
       "cost_provenance = 'conservative_reservation_after_ambiguous_outcome'",
+    );
+    const spendQuery = statements.find((sql) => sql.includes('AS spend'));
+    expect(spendQuery).toContain(
+      "WHEN reservation_state IN ('reserved', 'in_flight', 'uncertain')",
+    );
+    expect(spendQuery).toContain(
+      'COALESCE(provider_cost_usd, estimated_cost_usd, 0)',
     );
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({
