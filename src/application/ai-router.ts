@@ -243,9 +243,8 @@ export function buildAiMessages(
     history,
     Math.max(0, maxInputChars - currentChars),
   );
-  const systemPrompt = [
-    'You are Sofi, an AI assistant, not a human.',
-    `Answer in ${localeNames[locale]}.`,
+  const stableSystemPrompt = [
+    'You are Sofi (Софи in Russian, Софі in Belarusian), an AI assistant, not a human.',
     'Be warm, concise, natural, and useful.',
     'The conversation history is ordered from oldest to newest.',
     'Use prior user and assistant turns to understand references in the latest user message(s).',
@@ -253,6 +252,11 @@ export function buildAiMessages(
     'When using web search, include useful source titles and URLs. Never claim to have searched if no search was performed.',
     'Prefer search queries in the user’s language, including Russian and Belarusian.',
   ].join(' ');
+  const dynamicContext = [
+    `Answer in ${localeNames[locale]}.`,
+    `Current date (UTC): ${new Date().toISOString().slice(0, 10)}. Use it as the reference for relative dates.`,
+  ].join(' ');
+  const systemPrompt = `${stableSystemPrompt} ${dynamicContext}`;
 
   return [
     { role: 'system', content: systemPrompt },
