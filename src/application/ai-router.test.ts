@@ -58,7 +58,8 @@ describe('AI Router', () => {
   });
 
   it('includes Sofi name variants in English, Russian, and Belarusian', () => {
-    const systemPrompt = buildAiMessages(['hello'], 'en')[0]?.content ?? '';
+    const systemPrompt =
+      buildAiMessages(['hello'], 'en')[0]?.content ?? '';
 
     expect(systemPrompt).toContain(
       'You are Sofi (Софи in Russian, Софі in Belarusian), an AI assistant, not a human.',
