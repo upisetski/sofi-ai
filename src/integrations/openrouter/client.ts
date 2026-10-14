@@ -325,6 +325,20 @@ function sanitizeProviderErrorMessage(
   return safeMessage || undefined;
 }
 
+function sanitizeCitationTitle(value: unknown, fallback: string): string {
+  const sanitized = [...(typeof value === 'string' ? value : '')]
+    .map((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127 ? ' ' : character;
+    })
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+
+  return sanitized || fallback;
+}
+
 function parseUrlCitations(value: unknown): AiSource[] {
   if (!Array.isArray(value)) return [];
 
@@ -364,15 +378,8 @@ function parseUrlCitations(value: unknown): AiSource[] {
     if (seen.has(canonicalUrl)) continue;
     seen.add(canonicalUrl);
 
-    const title =
-      typeof citation.title === 'string'
-        ? citation.title
-            .replace(/[\u0000-\u001f\u007f]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .slice(0, 200)
-        : '';
-    sources.push({ title: title || parsedUrl.hostname, url });
+    const title = sanitizeCitationTitle(citation.title, parsedUrl.hostname);
+    sources.push({ title, url });
     if (sources.length >= 10) break;
   }
 

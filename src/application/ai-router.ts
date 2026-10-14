@@ -334,6 +334,20 @@ function boundMessages(messages: string[], maxInputChars: number): string[] {
   return bounded;
 }
 
+function sanitizeCitationTitle(value: unknown, fallback: string): string {
+  const sanitized = [...(typeof value === 'string' ? value : '')]
+    .map((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127 ? ' ' : character;
+    })
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+
+  return sanitized || fallback;
+}
+
 const MAX_RENDERED_AI_SOURCES = 5;
 
 function selectAppendableSources(
@@ -368,12 +382,7 @@ function selectAppendableSources(
     if (seen.has(canonicalUrl) || answerText.includes(url)) continue;
     seen.add(canonicalUrl);
 
-    const title =
-      (typeof source.title === 'string' ? source.title : '')
-        .replace(/[\u0000-\u001f\u007f]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 200) || parsedUrl.hostname;
+    const title = sanitizeCitationTitle(source.title, parsedUrl.hostname);
 
     selected.push({ title, url });
     if (selected.length >= MAX_RENDERED_AI_SOURCES) break;
