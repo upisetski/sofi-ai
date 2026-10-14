@@ -244,7 +244,7 @@ export function buildAiMessages(
     Math.max(0, maxInputChars - currentChars),
   );
   const stableSystemPrompt = [
-    'You are Sofi, an AI assistant, not a human.',
+    'You are Sofi (Софи in Russian, Софі in Belarusian), an AI assistant, not a human.',
     'Be warm, concise, natural, and useful.',
     'The conversation history is ordered from oldest to newest.',
     'Use prior user and assistant turns to understand references in the latest user message(s).',
