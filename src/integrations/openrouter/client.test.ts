@@ -66,17 +66,17 @@ describe('OpenRouter client', () => {
       messages: request.messages,
       max_tokens: 512,
       provider: { zdr: true, data_collection: 'deny' },
-      max_tool_calls: 5,
+      max_tool_calls: 2,
       parallel_tool_calls: false,
       tools: [
         {
           type: 'openrouter:web_search',
           parameters: {
-            engine: 'auto',
-            max_uses: 5,
+            engine: 'parallel',
+            max_uses: 2,
             max_results: 5,
-            max_total_results: 5,
-            search_context_size: 'low',
+            max_total_results: 10,
+            search_context_size: 'medium',
           },
         },
       ],
