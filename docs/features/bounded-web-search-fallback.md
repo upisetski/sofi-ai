@@ -1,4 +1,4 @@
-# Feature: OpenRouter-managed web search and bounded cost
+# Feature: Parallel web search and bounded cost
 
 ## Goal
 
@@ -10,7 +10,7 @@ Make web-search cost predictable by explicitly pinning Parallel in each Sofi req
 - Do not rely on workspace `auto` routing or workspace fallback order to select the engine for Sofi requests.
 - Sofi explicitly sends `engine: "parallel"` so each search uses Parallel instead of OpenRouter's `auto` behavior (native search when available, otherwise Exa).
 - Sofi applies one bounded request policy: Parallel's default `basic` mode (the current server-tool API documents `basic` and `advanced`, not `fast`), medium search context, 5 results per search, at most 10 total results, and no more than 2 search/tool calls per generation.
-- OpenRouter's workspace engine list provides centralized provider selection and availability-based fallback. It does **not** guarantee a retry against another engine after every runtime search error; Sofi will not implement its own cross-engine retry loop in this feature.
+- Sofi pins Parallel at request time. If Parallel is unavailable or errors, Sofi does not switch to Exa/native or retry with another engine; normal request failure handling applies.
 
 ## Request policy
 
@@ -85,7 +85,7 @@ Record route/model, search request count, model token usage, estimated/reported 
 
 ## Implementation checklist
 
-- [ ] Confirm workspace default and fallback engine order
+- [ ] Verify Parallel availability and billing in the OpenRouter workspace
 - [ ] Implement bounded request defaults without application-level engine routing
 - [ ] Verify two-call cost reservation and reconciliation
 - [ ] Add regression tests and update architecture/configuration docs
