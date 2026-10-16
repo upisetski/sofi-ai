@@ -2,12 +2,12 @@
 
 ## Goal
 
-Make web-search cost predictable while keeping engine selection and availability-based fallback in OpenRouter workspace settings, not in Sofi's application logic.
+Make web-search cost predictable by explicitly pinning Parallel in each Sofi request and bounding the number and size of searches.
 
 ## Decision
 
-- Configure the permitted engine list, default engine, and fallback order in the OpenRouter workspace Server Tools settings.
-- Configure the workspace to use Parallel first, with Exa and/or Perplexity as allowed alternatives. Exclude native provider search if predictable search-tool pricing is required.
+- Sofi sends `engine: "parallel"` on every search-enabled request. This is necessary because OpenRouter's `auto` engine uses native search when available and otherwise falls back to Exa.
+- Do not rely on workspace `auto` routing or workspace fallback order to select the engine for Sofi requests.
 - Sofi explicitly sends `engine: "parallel"` so each search uses Parallel instead of OpenRouter's `auto` behavior (native search when available, otherwise Exa).
 - Sofi applies one bounded request policy: Parallel's default `basic` mode (the current server-tool API documents `basic` and `advanced`, not `fast`), medium search context, 5 results per search, at most 10 total results, and no more than 2 search/tool calls per generation.
 - OpenRouter's workspace engine list provides centralized provider selection and availability-based fallback. It does **not** guarantee a retry against another engine after every runtime search error; Sofi will not implement its own cross-engine retry loop in this feature.
@@ -35,12 +35,11 @@ Both `max_uses` and top-level `max_tool_calls` are set because native-provider e
 
 ## In scope
 
-- Set bounded request defaults for result count, context, mode, and tool calls.
-- Defer provider/engine selection to OpenRouter workspace settings.
+- Pin Parallel and set bounded request defaults for result count, context, and tool calls.
 - Preserve existing privacy settings on every OpenRouter request.
 - Keep content-free usage accounting and sanitized telemetry.
 - Add unit tests for the exact request body, search limits, and accounting reservation/reconciliation behavior.
-- Update architecture/configuration docs to describe OpenRouter as the source of truth for engine selection.
+- Update configuration docs to describe the explicit Parallel request setting.
 
 ## Out of scope
 
@@ -63,7 +62,7 @@ Both `max_uses` and top-level `max_tool_calls` are set because native-provider e
 
 ## Acceptance criteria
 
-- [ ] OpenRouter workspace is configured with the selected allowed engines and default/fallback order; engine configuration is not duplicated in Sofi.
+- [ ] Request explicitly pins Parallel; OpenRouter `auto` routing is not used for Sofi searches.
 - [ ] Sofi explicitly selects Parallel and does not use OpenRouter `auto` routing.
 - [ ] Request carries `engine: "parallel"`, `search_context_size: "medium"`, `max_results: 5`, `max_total_results: 10`, and `max_uses: 2`; no unsupported `mode: "fast"` field is sent.
 - [ ] Top-level `max_tool_calls` is 2.
@@ -81,7 +80,7 @@ Record route/model, search request count, model token usage, estimated/reported 
 ## Dependencies
 
 - Existing OpenRouter client, AI Router, and PostgreSQL usage-accounting ledger.
-- OpenRouter workspace Server Tools access to configure and verify the engine list.
+- OpenRouter workspace Server Tools access to verify Parallel availability and billing.
 - Current pricing and privacy/region behavior validated against the actual workspace.
 
 ## Implementation checklist
