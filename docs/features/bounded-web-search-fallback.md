@@ -23,7 +23,7 @@ The OpenRouter server tool request should use these bounds:
 - `max_uses: 2`.
 - Top-level `max_tool_calls: 2`.
 
-Both `max_uses` and top-level `max_tool_calls` are set because native-provider enforcement of `max_uses` varies. `max_tool_calls` is the overall server-tool step limit. Keep the search tool as model-invoked so ordinary writing requests need not search.
+Set both `max_uses` and top-level `max_tool_calls` to 2: the former caps search uses, while the latter caps tool calls in the generation. Keep the search tool model-invoked so ordinary writing requests need not search.
 
 ## Cost and usage accounting
 
