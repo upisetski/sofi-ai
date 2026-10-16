@@ -48,7 +48,7 @@ Already implemented on the current main branch:
 - Automated tests for routing, mocked OpenRouter responses, debounce, and core integration behavior.
 - Railway-oriented deployment, database migrations/readiness checks, Docker build, and CI.
 
-WP1 adds persisted assistant history, bounded multi-turn context, a localized reset, and durable turn/reply delivery recovery; see the [feature specification](features/multi-turn-context-and-durable-delivery.md). WP2 adds content-free per-attempt accounting, PostgreSQL atomic reservations/reconciliation, per-user and global budget limits, a per-request cost guard, economy mode, and reason-specific localized denials for the current `cheap_text` route; see [usage accounting and cost controls](features/usage-accounting-and-cost-controls.md). WP3's native-first, model-invoked OpenRouter search integration has been merged, and returned URL citations are now rendered into replies; bounded route-specific fallback behavior and live pre-launch search, billing, and privacy validation remain outstanding. WP4 production observability and product analytics/alerting remain outstanding. Search must not be enabled for external users until separately billed tool costs are safely guarded and provider/search privacy and billing have been verified. Viber delivery cannot be guaranteed exactly once when a send outcome is ambiguous.
+WP1 adds persisted assistant history, bounded multi-turn context, a localized reset, and durable turn/reply delivery recovery; see the [feature specification](features/multi-turn-context-and-durable-delivery.md). WP2 adds content-free per-attempt accounting, PostgreSQL atomic reservations/reconciliation, per-user and global budget limits, a per-request cost guard, economy mode, and reason-specific localized denials for the current `cheap_text` route; see [usage accounting and cost controls](features/usage-accounting-and-cost-controls.md). WP3's model-invoked OpenRouter search integration and URL citations are implemented. This branch pins search to Parallel, sets medium context, 5 results per search / 10 total, and caps search/tool calls at 2; live pre-launch search-quality, billing, and privacy validation remain outstanding. Sofi does not automatically fall back to Exa or native search when Parallel is unavailable. WP4 production observability and product analytics/alerting remain outstanding. Search must not be enabled for external users until separately billed tool costs are safely guarded and provider/search privacy and billing have been verified. Viber delivery cannot be guaranteed exactly once when a send outcome is ambiguous.
 
 ## Next recommended moves — start here
 
@@ -56,7 +56,7 @@ The durable context and usage-accounting foundations (WP1/WP2) are already on th
 
 1. **Finish WP3 web-search acceptance (P0).**
    - Test representative Russian and Belarusian current-information queries, confirm useful source titles/URLs, and verify that Sofi never claims to have searched when no search was performed.
-   - Exercise unsupported-model/tool combinations, transient failures, bounded retries/fallbacks, and budget-denied cases.
+   - Exercise Parallel availability/errors, bounded search limits, and budget-denied cases; confirm failures do not trigger a cross-engine retry.
    - Compare usage-ledger search-cost estimates with actual OpenRouter billing and adjust conservative configuration as needed.
    - Keep `AI_WEB_SEARCH_ENABLED=false` in Railway for external users until search acceptance, cost accounting, and privacy checks pass.
 
