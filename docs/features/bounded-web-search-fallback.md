@@ -8,18 +8,18 @@ Make web-search cost predictable while keeping engine selection and availability
 
 - Configure the permitted engine list, default engine, and fallback order in the OpenRouter workspace Server Tools settings.
 - Configure the workspace to use Parallel first, with Exa and/or Perplexity as allowed alternatives. Exclude native provider search if predictable search-tool pricing is required.
-- Sofi must not pin Parallel, Exa, or Perplexity in application code or deployment configuration. It should leave the engine unset or send `engine: "auto"` so OpenRouter workspace defaults apply.
-- Sofi applies one bounded request policy: Parallel `mode: "fast"`, medium search context, at most 7 results per search, at most 14 total results, and no more than 2 search/tool calls per generation.
+- Sofi explicitly sends `engine: "parallel"` so each search uses Parallel instead of OpenRouter's `auto` behavior (native search when available, otherwise Exa).
+- Sofi applies one bounded request policy: Parallel's default `basic` mode (the current server-tool API documents `basic` and `advanced`, not `fast`), medium search context, 5 results per search, at most 10 total results, and no more than 2 search/tool calls per generation.
 - OpenRouter's workspace engine list provides centralized provider selection and availability-based fallback. It does **not** guarantee a retry against another engine after every runtime search error; Sofi will not implement its own cross-engine retry loop in this feature.
 
 ## Request policy
 
 The OpenRouter server tool request should use these bounds:
 
-- `mode: "fast"` (used by Parallel; ignored by engines that do not support that mode).
+- Do not send a `mode` parameter: the current OpenRouter server-tool API documents Parallel modes as `basic` and `advanced`, not `fast`; use Parallel's default `basic` mode.
 - `search_context_size: "medium"`.
-- `max_results: 7`.
-- `max_total_results: 14`.
+- `max_results: 5`.
+- `max_total_results: 10`.
 - `max_uses: 2`.
 - Top-level `max_tool_calls: 2`.
 
@@ -28,8 +28,8 @@ Both `max_uses` and top-level `max_tool_calls` are set because native-provider e
 ## Cost and usage accounting
 
 - Reserve the configured search-cost estimate for up to two search calls before generation, and reconcile it against OpenRouter's returned usage when available.
-- Keep `AI_WEB_SEARCH_COST_PER_REQUEST_USD` conservative enough for every engine allowed by the workspace. At current published prices, $0.01 per search covers Parallel Fast ($0.001), Perplexity ($0.005), and Exa Fast/Auto ($0.007), for up to 7 results per call. Verify the live billing view before enabling external users.
-- The worst-case search-tool reserve with that estimate is $0.02 per generation, in addition to model-token usage. The normal per-user and global budgets, per-request guard, and economy mode must remain in force.
+- Keep `AI_WEB_SEARCH_COST_PER_REQUEST_USD` conservative enough for every engine allowed by the workspace. OpenRouter currently documents Parallel at $0.005 per search request, including up to 10 results. Keep the $0.01-per-search reservation as a conservative estimate and verify the live billing view before enabling external users.
+- The configured search-tool reserve with that estimate is $0.02 per generation, in addition to model-token usage. The normal per-user and global budgets, per-request guard, and economy mode must remain in force.
 - Do not treat the defaults as a hard cap on model-token costs; model input/output costs are accounted separately.
 - Do not enable external-user search until the combined maximum model + search cost is enforced and verified.
 
@@ -53,7 +53,7 @@ Both `max_uses` and top-level `max_tool_calls` are set because native-provider e
 ## Requirements
 
 - Search is enabled only when configured on, and the OpenRouter server tool remains the normal search path.
-- The engine is not hard-coded in Sofi. An omitted engine or `engine: "auto"` must allow workspace defaults to apply.
+- The request explicitly sets `engine: "parallel"`; it must not use `auto`, because `auto` can fall back to Exa when native search is unavailable.
 - The application applies the bounded request policy above on every search-enabled request.
 - No more than two server-tool calls are allowed for one generation.
 - The app keeps strict ZDR and data-collection settings; search-backend retention and regional availability must be separately checked.
@@ -64,10 +64,10 @@ Both `max_uses` and top-level `max_tool_calls` are set because native-provider e
 ## Acceptance criteria
 
 - [ ] OpenRouter workspace is configured with the selected allowed engines and default/fallback order; engine configuration is not duplicated in Sofi.
-- [ ] Sofi leaves engine selection to workspace policy by omitting engine or passing `auto`.
-- [ ] Request carries `mode: "fast"`, `search_context_size: "medium"`, `max_results: 7`, `max_total_results: 14`, and `max_uses: 2`.
+- [ ] Sofi explicitly selects Parallel and does not use OpenRouter `auto` routing.
+- [ ] Request carries `engine: "parallel"`, `search_context_size: "medium"`, `max_results: 5`, `max_total_results: 10`, and `max_uses: 2`; no unsupported `mode: "fast"` field is sent.
 - [ ] Top-level `max_tool_calls` is 2.
-- [ ] Tests verify the parameters and ensure the app does not pin a concrete search provider.
+- [ ] Tests verify the exact Parallel engine and bounded request parameters.
 - [ ] Usage accounting reserves costs for two search calls and reconciles actual reported usage where available.
 - [ ] Tests prove that existing per-user/per-request/global budgets still apply.
 - [ ] Live synthetic Russian and Belarusian queries validate relevance, citations, latency, region availability, privacy, and charges across the configured engine list.
