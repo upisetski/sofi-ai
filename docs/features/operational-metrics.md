@@ -71,7 +71,7 @@ Database failures are logged through Fastify's structured logger. The endpoint e
 
 ## Implementation checklist
 
-- [x] Implementation complete
+- [ ] Implementation complete
 - [x] Tests added or updated
 - [x] Documentation updated where needed
 - [ ] ADR added if a significant architectural decision was made
