@@ -60,6 +60,7 @@ export function createOpenRouterClient(
                       type: 'openrouter:web_search',
                       parameters: {
                         engine: options.webSearchEngine ?? 'parallel',
+                        mode: 'fast',
                         max_uses: options.webSearchMaxRequests ?? 2,
                         max_results: options.webSearchMaxResults ?? 5,
                         max_total_results:
