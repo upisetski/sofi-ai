@@ -14,7 +14,7 @@ This is an operator-only endpoint, not a user-facing Viber feature. When enabled
 
 - A bearer-token-protected `GET /ops/metrics` endpoint.
 - An endpoint that remains undiscoverable when its token is not configured.
-- Aggregate AI request counts, success/failure counts, p95 latency, provider-reported cost, outstanding reservation exposure, and unknown-cost attempts for the last 24 hours and 7 days.
+- Aggregate AI request counts, success/failure counts, p95 latency, provider-reported and estimated cost separately, outstanding reservation exposure, and unknown-cost attempts for the last 24 hours and 7 days.
 - Aggregate reply generation/delivery/failure/pending counts and active/returning-user counts.
 - Consistent `LOG_LEVEL` configuration for Fastify logs.
 
@@ -29,19 +29,19 @@ This is an operator-only endpoint, not a user-facing Viber feature. When enabled
 - Require a configured token and compare supplied credentials without timing-sensitive string comparison.
 - Do not query the database for unauthenticated requests.
 - Return aggregate data only; never include conversation or user identifiers.
-- Include only settled/estimated spend and separately identified reserved exposure so unresolved reservations are not presented as settled charges.
+- Report provider-reported costs, rate-based estimated costs, and outstanding reserved exposure separately; unknown costs remain separately countable.
 - Return a generic unavailable response on database errors without exposing internal details.
 - Use the existing PostgreSQL tables; do not add an analytics persistence model.
 
 ## Acceptance criteria
 
-- [ ] The endpoint returns 404 when its token is not configured.
-- [ ] Unauthorized requests return 401 and do not query PostgreSQL.
-- [ ] Authorized requests return aggregate metrics for 24-hour and 7-day windows.
-- [ ] The metrics exclude content and user/conversation identifiers.
-- [ ] Database failures return a generic 503 response and are logged server-side.
-- [ ] `OPS_METRICS_TOKEN` is optional, but when set must be at least 32 characters.
-- [ ] `LOG_LEVEL` configures Fastify logging.
+- [x] The endpoint returns 404 when its token is not configured.
+- [x] Unauthorized requests return 401 and do not query PostgreSQL.
+- [x] Authorized requests return aggregate metrics for 24-hour and 7-day windows.
+- [x] The metrics exclude content and user/conversation identifiers.
+- [x] Database failures return a generic 503 response and are logged server-side.
+- [x] `OPS_METRICS_TOKEN` is optional, but when set must be at least 32 characters.
+- [x] `LOG_LEVEL` configures Fastify logging.
 
 ## Technical notes
 
@@ -71,9 +71,9 @@ Database failures are logged through Fastify's structured logger. The endpoint e
 
 ## Implementation checklist
 
-- [ ] Implementation complete
+- [x] Implementation complete
 - [x] Tests added or updated
 - [x] Documentation updated where needed
 - [ ] ADR added if a significant architectural decision was made
-- [ ] Full local checks pass
-- [ ] Focused PR opened
+- [x] CI checks pass
+- [x] Focused PR opened
