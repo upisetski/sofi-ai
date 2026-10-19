@@ -58,11 +58,29 @@ describe('environment configuration', () => {
     expect(config.OPENROUTER_API_KEY).toBe('test-openrouter-key');
   });
 
+  it('requires at least 32 characters for the operational metrics token', () => {
+    expect(() =>
+      parseEnv({ ...baseEnv, OPS_METRICS_TOKEN: 'too-short' }),
+    ).toThrow();
+
+    const token = 'x'.repeat(32);
+    expect(
+      parseEnv({ ...baseEnv, OPS_METRICS_TOKEN: token }).OPS_METRICS_TOKEN,
+    ).toBe(token);
+  });
+
+  it('treats an empty operational metrics token as disabled', () => {
+    expect(
+      parseEnv({ ...baseEnv, OPS_METRICS_TOKEN: '' }).OPS_METRICS_TOKEN,
+    ).toBeUndefined();
+  });
+
   it('uses bounded defaults for AI generation', () => {
     const config = parseEnv({ ...baseEnv, NODE_ENV: 'test' });
 
     expect(config.AI_ENABLED).toBe(true);
     expect(config.MESSAGE_DEBOUNCE_MS).toBe(5000);
+    expect(config.OPS_METRICS_TOKEN).toBeUndefined();
     expect(config.AI_MODEL_CHEAP_TEXT).toBe('openai/gpt-6-luna');
     expect(config.OPENROUTER_REQUIRE_ZDR).toBe(true);
     expect(config.OPENROUTER_DATA_COLLECTION_POLICY).toBe('deny');
