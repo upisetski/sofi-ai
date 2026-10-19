@@ -26,7 +26,7 @@ This is an operator-only endpoint, not a user-facing Viber feature. When enabled
 
 ## Requirements
 
-- Require a configured token and compare supplied credentials without timing-sensitive string comparison.
+- Require a configured token and compare equal-length credentials using a timing-safe comparison.
 - Do not query the database for unauthenticated requests.
 - Return aggregate data only; never include conversation or user identifiers.
 - Report provider-reported costs, rate-based estimated costs, and outstanding reserved exposure separately; unknown costs remain separately countable.
