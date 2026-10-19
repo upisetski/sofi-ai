@@ -14,7 +14,7 @@ This is an operator-only endpoint, not a user-facing Viber feature. When enabled
 
 - A bearer-token-protected `GET /ops/metrics` endpoint.
 - An endpoint that remains undiscoverable when its token is not configured.
-- Aggregate AI request counts, success/failure counts, p95 latency, settled cost, outstanding reservation exposure, and unknown-cost attempts for the last 24 hours and 7 days.
+- Aggregate AI request counts, success/failure counts, p95 latency, provider-reported cost, outstanding reservation exposure, and unknown-cost attempts for the last 24 hours and 7 days.
 - Aggregate reply generation/delivery/failure/pending counts and active/returning-user counts.
 - Consistent `LOG_LEVEL` configuration for Fastify logs.
 
