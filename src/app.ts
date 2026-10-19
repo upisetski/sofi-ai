@@ -63,9 +63,7 @@ export function buildApp(options: AppOptions = {}) {
       return reply.code(404).send({ status: 'not_found' });
     }
 
-    if (
-      !isAuthorized(request.headers.authorization, options.opsMetricsToken)
-    ) {
+    if (!isAuthorized(request.headers.authorization, options.opsMetricsToken)) {
       return reply
         .code(401)
         .header('www-authenticate', 'Bearer')
@@ -100,7 +98,5 @@ function isAuthorized(
 
   const actual = Buffer.from(match[1]);
   const expected = Buffer.from(expectedToken);
-  return (
-    actual.length === expected.length && timingSafeEqual(actual, expected)
-  );
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
