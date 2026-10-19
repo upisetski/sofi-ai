@@ -10,6 +10,7 @@ Before making non-trivial changes, read:
 - [Product context](docs/product.md)
 - [Architecture](docs/architecture.md)
 - [MVP roadmap and release gates](docs/roadmap.md)
+- [Pre-release test cases, rubric, and pilot evaluation](docs/testing/README.md)
 - [Architecture decisions](docs/decisions/)
 
 These documents are the repository source of truth for product and engineering context. Keep them factual and current; `docs/roadmap.md` is the source of truth for first-MVP scope, sequencing, and release gates.
