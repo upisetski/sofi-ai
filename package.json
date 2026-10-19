@@ -19,7 +19,7 @@
     "format:fix": "prettier --write .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run --no-file-parallelism",
-    "test:watch": "vitest",
+    "test:watch": "vitest --no-file-parallelism",
     "db:migrate": "tsx src/db/migrate.ts",
     "prepare": "node scripts/setup-git-hooks.mjs",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build"
