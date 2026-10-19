@@ -67,12 +67,12 @@ describe('environment configuration', () => {
     expect(config.OPENROUTER_REQUIRE_ZDR).toBe(true);
     expect(config.OPENROUTER_DATA_COLLECTION_POLICY).toBe('deny');
     expect(config.AI_WEB_SEARCH_ENABLED).toBe(true);
-    expect(config.AI_WEB_SEARCH_ENGINE).toBe('auto');
+    expect(config.AI_WEB_SEARCH_ENGINE).toBe('parallel');
     expect(config.AI_WEB_SEARCH_MAX_RESULTS).toBe(5);
-    expect(config.AI_WEB_SEARCH_MAX_TOTAL_RESULTS).toBe(5);
-    expect(config.AI_WEB_SEARCH_CONTEXT_SIZE).toBe('low');
+    expect(config.AI_WEB_SEARCH_MAX_TOTAL_RESULTS).toBe(10);
+    expect(config.AI_WEB_SEARCH_CONTEXT_SIZE).toBe('medium');
     expect(config.AI_WEB_SEARCH_COST_PER_REQUEST_USD).toBe(0.01);
-    expect(config.AI_WEB_SEARCH_MAX_REQUESTS).toBe(5);
+    expect(config.AI_WEB_SEARCH_MAX_REQUESTS).toBe(2);
     expect(config.AI_MAX_OUTPUT_TOKENS).toBe(512);
     expect(config.AI_REQUEST_TIMEOUT_MS).toBe(30000);
     expect(config.AI_USAGE_PRICING_MODEL).toBe('openai/gpt-6-luna');

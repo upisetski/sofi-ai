@@ -53,19 +53,20 @@ export function createOpenRouterClient(
             },
             ...((options.webSearchEnabled ?? true)
               ? {
-                  max_tool_calls: options.webSearchMaxRequests ?? 5,
+                  max_tool_calls: options.webSearchMaxRequests ?? 2,
                   parallel_tool_calls: false,
                   tools: [
                     {
                       type: 'openrouter:web_search',
                       parameters: {
-                        engine: options.webSearchEngine ?? 'auto',
-                        max_uses: options.webSearchMaxRequests ?? 5,
+                        engine: options.webSearchEngine ?? 'parallel',
+                        mode: 'fast',
+                        max_uses: options.webSearchMaxRequests ?? 2,
                         max_results: options.webSearchMaxResults ?? 5,
                         max_total_results:
-                          options.webSearchMaxTotalResults ?? 5,
+                          options.webSearchMaxTotalResults ?? 10,
                         search_context_size:
-                          options.webSearchContextSize ?? 'low',
+                          options.webSearchContextSize ?? 'medium',
                       },
                     },
                   ],
