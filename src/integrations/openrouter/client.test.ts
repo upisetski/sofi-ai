@@ -73,6 +73,7 @@ describe('OpenRouter client', () => {
           type: 'openrouter:web_search',
           parameters: {
             engine: 'parallel',
+            mode: 'fast',
             max_uses: 2,
             max_results: 5,
             max_total_results: 10,
