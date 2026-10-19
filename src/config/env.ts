@@ -109,6 +109,10 @@ export const envSchema = z
       .max(8192)
       .default(256),
     SENTRY_DSN: z.string().optional(),
+    OPS_METRICS_TOKEN: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().min(32).optional(),
+    ),
     LOG_LEVEL: z.string().default('info'),
   })
   .superRefine((config, ctx) => {

@@ -71,6 +71,182 @@ describe('health', () => {
   });
 });
 
+describe('operational metrics endpoint', () => {
+  const token = '0123456789abcdef0123456789abcdef';
+
+  it('hides the endpoint when no token is configured', async () => {
+    const query = vi.fn();
+    const app = buildApp({ db: { query } as unknown as Db });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/ops/metrics',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ status: 'not_found' });
+    expect(query).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('rejects unauthorized requests before querying the database', async () => {
+    const query = vi.fn();
+    const app = buildApp({
+      db: { query } as unknown as Db,
+      opsMetricsToken: token,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/ops/metrics',
+      headers: { authorization: 'Bearer wrong-token' },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ status: 'unauthorized' });
+    expect(query).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('returns content-free aggregate metrics to an authorized operator', async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('returning_users_7d')) {
+        return {
+          rows: [
+            {
+              active_users_24h: '2',
+              active_users_7d: '4',
+              returning_users_7d: '1',
+            },
+          ],
+        };
+      }
+
+      if (sql.includes('FROM ai_usage_attempts')) {
+        return {
+          rows: [
+            {
+              attempts_24h: '4',
+              successes_24h: '3',
+              failures_24h: '1',
+              p95_latency_ms_24h: '1200',
+              provider_reported_cost_usd_24h: '0.03',
+              estimated_cost_usd_24h: '0.01',
+              reserved_cost_usd_24h: '0.01',
+              unknown_cost_attempts_24h: '0',
+              attempts_7d: '10',
+              successes_7d: '8',
+              failures_7d: '2',
+              p95_latency_ms_7d: '1400',
+              provider_reported_cost_usd_7d: '0.08',
+              estimated_cost_usd_7d: '0.04',
+              reserved_cost_usd_7d: '0.02',
+              unknown_cost_attempts_7d: '1',
+            },
+          ],
+        };
+      }
+
+      if (sql.includes('FROM conversation_turns')) {
+        return {
+          rows: [
+            {
+              turns_created_24h: '5',
+              replies_generated_24h: '4',
+              replies_delivered_24h: '3',
+              generation_failures_24h: '1',
+              delivery_failures_24h: '0',
+              pending_replies_24h: '1',
+              turns_created_7d: '12',
+              replies_generated_7d: '10',
+              replies_delivered_7d: '9',
+              generation_failures_7d: '2',
+              delivery_failures_7d: '1',
+              pending_replies_7d: '1',
+            },
+          ],
+        };
+      }
+
+      throw new Error('unexpected_metrics_query');
+    });
+    const app = buildApp({
+      db: { query } as unknown as Db,
+      opsMetricsToken: token,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/ops/metrics',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.json()).toMatchObject({
+      ai: {
+        last24Hours: {
+          attempts: 4,
+          successes: 3,
+          failures: 1,
+          p95LatencyMs: 1200,
+          providerReportedCostUsd: 0.03,
+          estimatedCostUsd: 0.01,
+          reservedCostExposureUsd: 0.01,
+        },
+        last7Days: {
+          attempts: 10,
+          providerReportedCostUsd: 0.08,
+          estimatedCostUsd: 0.04,
+          unknownCostAttempts: 1,
+        },
+      },
+      replies: {
+        last24Hours: {
+          turnsCreated: 5,
+          generated: 4,
+          delivered: 3,
+          generationFailures: 1,
+          pending: 1,
+        },
+      },
+      users: {
+        active24Hours: 2,
+        active7Days: 4,
+        returning7Days: 1,
+      },
+    });
+    expect(query).toHaveBeenCalledTimes(3);
+    const serialized = JSON.stringify(response.json());
+    expect(serialized).not.toContain('provider_user_id');
+    expect(serialized).not.toContain('conversationId');
+    expect(serialized).not.toContain('prompt');
+    expect(serialized).not.toContain('completion');
+    await app.close();
+  });
+
+  it('returns a generic unavailable response when aggregate queries fail', async () => {
+    const query = vi.fn(async () => {
+      throw new Error('database internals should not be returned');
+    });
+    const app = buildApp({
+      db: { query } as unknown as Db,
+      opsMetricsToken: token,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/ops/metrics',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ status: 'unavailable' });
+    expect(response.body).not.toContain('database internals');
+    await app.close();
+  });
+});
+
 describe('localization', () => {
   it('supports Russian, Belarusian, and English', () => {
     expect(resolveLocale('ru')).toBe('ru');

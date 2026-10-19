@@ -160,6 +160,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS conversation_turns_viber_token_idx
   ON conversation_turns (viber_message_token)
   WHERE viber_message_token IS NOT NULL;
 
+CREATE INDEX IF NOT EXISTS conversation_turns_created_at_idx
+  ON conversation_turns (created_at);
+
 CREATE TABLE IF NOT EXISTS viber_delivery_callbacks (
   message_token TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
