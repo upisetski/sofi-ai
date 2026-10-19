@@ -110,7 +110,7 @@ describe('operational metrics endpoint', () => {
 
   it('returns content-free aggregate metrics to an authorized operator', async () => {
     const query = vi.fn(async (sql: string) => {
-      if (sql.includes('COUNT(DISTINCT user_id)')) {
+      if (sql.includes('returning_users_7d')) {
         return {
           rows: [
             {
