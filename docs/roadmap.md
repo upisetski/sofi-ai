@@ -48,7 +48,7 @@ Already implemented on the current main branch:
 - Automated tests for routing, mocked OpenRouter responses, debounce, and core integration behavior.
 - Railway-oriented deployment, database migrations/readiness checks, Docker build, and CI.
 
-WP1 adds persisted assistant history, bounded multi-turn context, a localized reset, and durable turn/reply delivery recovery; see the [feature specification](features/multi-turn-context-and-durable-delivery.md). WP2 adds content-free per-attempt accounting, PostgreSQL atomic reservations/reconciliation, per-user and global budget limits, a per-request cost guard, economy mode, and reason-specific localized denials for the current `cheap_text` route; see [usage accounting and cost controls](features/usage-accounting-and-cost-controls.md). WP3's model-invoked OpenRouter search integration and URL citations are implemented. This branch pins search to Parallel, sets medium context, 5 results per search / 10 total, and caps search/tool calls at 2; live pre-launch search-quality, billing, and privacy validation remain outstanding. Sofi does not automatically fall back to Exa or native search when Parallel is unavailable. WP4 production observability and product analytics/alerting remain outstanding. Search must not be enabled for external users until separately billed tool costs are safely guarded and provider/search privacy and billing have been verified. Viber delivery cannot be guaranteed exactly once when a send outcome is ambiguous.
+WP1 adds persisted assistant history, bounded multi-turn context, a localized reset, and durable turn/reply delivery recovery; see the [feature specification](features/multi-turn-context-and-durable-delivery.md). WP2 adds content-free per-attempt accounting, PostgreSQL atomic reservations/reconciliation, per-user and global budget limits, a per-request cost guard, economy mode, and reason-specific localized denials for the current `cheap_text` route; see [usage accounting and cost controls](features/usage-accounting-and-cost-controls.md). WP3's model-invoked OpenRouter search integration and URL citations are implemented. This branch pins search to Parallel Fast (`engine: parallel`, `mode: fast`), sets medium context, 5 results per search / 10 total, and caps search/tool calls at 2; live pre-launch search-quality, billing, and privacy validation remain outstanding. Sofi does not automatically fall back to Exa or native search when Parallel is unavailable. WP4 production observability and product analytics/alerting remain outstanding. Search must not be enabled for external users until separately billed tool costs are safely guarded and provider/search privacy and billing have been verified. Viber delivery cannot be guaranteed exactly once when a send outcome is ambiguous.
 
 ## Next recommended moves — start here
 
@@ -113,17 +113,17 @@ Implement each work package as a focused feature PR. Before coding a non-trivial
 
 ### WP3 — Model-invoked web search and bounded fallbacks
 
-**Priority:** P0 — native-first search integration merged; remaining acceptance work is a release blocker
+**Priority:** P0 — Parallel Fast request policy being finalized; live acceptance remains a release blocker
 
 - Keep all model calls behind the internal AI Router; business logic must not depend on OpenRouter request/response types.
 - Keep `cheap_text` configurable for normal chat and make model-invoked web search available through the same route; do not force a separate search route for each request.
 - [x] Make OpenRouter's `openrouter:web_search` server tool available on normal text requests so the model can choose when current information is needed; avoid unnecessary searches for ordinary writing and explanations.
-- [x] Prefer native provider search using the `auto` engine and its documented Exa fallback when native search is unsupported. Keep the engine configurable.
+- [x] Pin Sofi search requests to Parallel Fast (`engine: parallel`, `mode: fast`) rather than OpenRouter `auto` routing to native search or Exa. Fast-mode Russian/Belarusian quality still requires manual validation.
 - [x] Cap results and reserve/reconcile separately billed search costs through the shared budget guard.
 - [x] Preserve and render validated OpenRouter URL-citation annotations as source titles/URLs when those links are not already in answer text; retain the explicit instruction never to claim a search that did not occur.
    - [ ] Manually verify useful citations and truthful search claims with representative Russian and Belarusian current-information queries.
 - [x] Keep search calls/results bounded and include estimated search-tool charges in the shared budget guard.
-- Configure route-specific models and bounded fallback/retry behavior for transient or availability failures. Fallbacks must support the route's requirements and remain within cost/privacy limits.
+- Keep generation retries bounded. Do not add cross-engine search fallback: if Parallel is unavailable, use existing failure handling rather than silently switching to native search or Exa.
 - Avoid retrying non-transient failures blindly; prevent retry loops and unnecessary duplicate generation.
 - Add mocked contract/integration tests for search results, source-link formatting, route selection, tool/model incompatibility, provider failures, fallbacks, and cost-limit interactions.
 - [ ] Verify effective provider/search privacy and data handling before rollout; do not assume every model/provider supports web search.
