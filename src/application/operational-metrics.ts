@@ -5,14 +5,16 @@ interface UsageAggregateRow {
   successes_24h: string | number;
   failures_24h: string | number;
   p95_latency_ms_24h: string | number;
-  settled_cost_usd_24h: string | number;
+  provider_reported_cost_usd_24h: string | number;
+  estimated_cost_usd_24h: string | number;
   reserved_cost_usd_24h: string | number;
   unknown_cost_attempts_24h: string | number;
   attempts_7d: string | number;
   successes_7d: string | number;
   failures_7d: string | number;
   p95_latency_ms_7d: string | number;
-  settled_cost_usd_7d: string | number;
+  provider_reported_cost_usd_7d: string | number;
+  estimated_cost_usd_7d: string | number;
   reserved_cost_usd_7d: string | number;
   unknown_cost_attempts_7d: string | number;
 }
@@ -74,17 +76,27 @@ export async function getOperationalMetrics(db: Db) {
         COALESCE(
           SUM(
             CASE
-              WHEN reservation_state IN ('reserved', 'in_flight', 'uncertain')
-                THEN 0
-              WHEN reservation_state IN ('settled', 'released')
-                THEN COALESCE(provider_cost_usd, estimated_cost_usd, 0)
+              WHEN cost_kind = 'actual'
+                THEN COALESCE(provider_cost_usd, 0)
               ELSE 0
             END
           ) FILTER (
             WHERE started_at >= NOW() - INTERVAL '24 hours'
           ),
           0
-        )::numeric(20, 6) AS settled_cost_usd_24h,
+        )::numeric(20, 6) AS provider_reported_cost_usd_24h,
+        COALESCE(
+          SUM(
+            CASE
+              WHEN cost_kind = 'estimated'
+                THEN COALESCE(estimated_cost_usd, 0)
+              ELSE 0
+            END
+          ) FILTER (
+            WHERE started_at >= NOW() - INTERVAL '24 hours'
+          ),
+          0
+        )::numeric(20, 6) AS estimated_cost_usd_24h,
         COALESCE(
           SUM(
             CASE
@@ -124,17 +136,27 @@ export async function getOperationalMetrics(db: Db) {
         COALESCE(
           SUM(
             CASE
-              WHEN reservation_state IN ('reserved', 'in_flight', 'uncertain')
-                THEN 0
-              WHEN reservation_state IN ('settled', 'released')
-                THEN COALESCE(provider_cost_usd, estimated_cost_usd, 0)
+              WHEN cost_kind = 'actual'
+                THEN COALESCE(provider_cost_usd, 0)
               ELSE 0
             END
           ) FILTER (
             WHERE started_at >= NOW() - INTERVAL '7 days'
           ),
           0
-        )::numeric(20, 6) AS settled_cost_usd_7d,
+        )::numeric(20, 6) AS provider_reported_cost_usd_7d,
+        COALESCE(
+          SUM(
+            CASE
+              WHEN cost_kind = 'estimated'
+                THEN COALESCE(estimated_cost_usd, 0)
+              ELSE 0
+            END
+          ) FILTER (
+            WHERE started_at >= NOW() - INTERVAL '7 days'
+          ),
+          0
+        )::numeric(20, 6) AS estimated_cost_usd_7d,
         COALESCE(
           SUM(
             CASE
@@ -262,7 +284,8 @@ export async function getOperationalMetrics(db: Db) {
         successes: numeric(usage.successes_24h),
         failures: numeric(usage.failures_24h),
         p95LatencyMs: numeric(usage.p95_latency_ms_24h),
-        settledCostUsd: usd(usage.settled_cost_usd_24h),
+        providerReportedCostUsd: usd(usage.provider_reported_cost_usd_24h),
+        estimatedCostUsd: usd(usage.estimated_cost_usd_24h),
         reservedCostExposureUsd: usd(usage.reserved_cost_usd_24h),
         unknownCostAttempts: numeric(usage.unknown_cost_attempts_24h),
       },
@@ -271,7 +294,8 @@ export async function getOperationalMetrics(db: Db) {
         successes: numeric(usage.successes_7d),
         failures: numeric(usage.failures_7d),
         p95LatencyMs: numeric(usage.p95_latency_ms_7d),
-        settledCostUsd: usd(usage.settled_cost_usd_7d),
+        providerReportedCostUsd: usd(usage.provider_reported_cost_usd_7d),
+        estimatedCostUsd: usd(usage.estimated_cost_usd_7d),
         reservedCostExposureUsd: usd(usage.reserved_cost_usd_7d),
         unknownCostAttempts: numeric(usage.unknown_cost_attempts_7d),
       },
