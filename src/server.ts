@@ -70,7 +70,9 @@ try {
     db,
     reorderDelayMs: env.REORDER_DELAY_MS,
     messageDebounceMs: env.MESSAGE_DEBOUNCE_MS,
-    opsMetricsToken: env.OPS_METRICS_TOKEN,
+    ...(env.OPS_METRICS_TOKEN
+      ? { opsMetricsToken: env.OPS_METRICS_TOKEN }
+      : {}),
     logLevel: env.LOG_LEVEL,
   });
 
