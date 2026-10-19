@@ -9,14 +9,14 @@ Make web-search cost predictable by explicitly pinning Parallel in each Sofi req
 - Sofi sends `engine: "parallel"` on every search-enabled request. This is necessary because OpenRouter's `auto` engine uses native search when available and otherwise falls back to Exa.
 - Do not rely on workspace `auto` routing or workspace fallback order to select the engine for Sofi requests.
 - Sofi explicitly sends `engine: "parallel"` so each search uses Parallel instead of OpenRouter's `auto` behavior (native search when available, otherwise Exa).
-- Sofi applies one bounded request policy: Parallel's default `basic` mode (the current server-tool API documents `basic` and `advanced`, not `fast`), medium search context, 5 results per search, at most 10 total results, and no more than 2 search/tool calls per generation.
+- Sofi applies one bounded request policy: Parallel `fast` mode, medium search context, 5 results per search, at most 10 total results, and no more than 2 search/tool calls per generation. Parallel Fast language availability is not documented, so Russian and Belarusian search quality must be validated before external rollout.
 - Sofi pins Parallel at request time. If Parallel is unavailable or errors, Sofi does not switch to Exa/native or retry with another engine; normal request failure handling applies.
 
 ## Request policy
 
 The OpenRouter server tool request should use these bounds:
 
-- Do not send a `mode` parameter: the current OpenRouter server-tool API documents Parallel modes as `basic` and `advanced`, not `fast`; use Parallel's default `basic` mode.
+- `mode: "fast"` for lower-latency Parallel search.
 - `search_context_size: "medium"`.
 - `max_results: 5`.
 - `max_total_results: 10`.
@@ -28,14 +28,14 @@ Set both `max_uses` and top-level `max_tool_calls` to 2: the former caps search 
 ## Cost and usage accounting
 
 - Reserve the configured search-cost estimate for up to two search calls before generation, and reconcile it against OpenRouter's returned usage when available.
-- Keep `AI_WEB_SEARCH_COST_PER_REQUEST_USD` conservative enough for every engine allowed by the workspace. OpenRouter currently documents Parallel at $0.005 per search request, including up to 10 results. Keep the $0.01-per-search reservation as a conservative estimate and verify the live billing view before enabling external users.
+- OpenRouter documents Parallel Fast at $0.001 per search request, including up to 10 results. Keep the `$0.01`-per-search reservation as a conservative estimate and verify the live billing view before enabling external users.
 - The configured search-tool reserve with that estimate is $0.02 per generation, in addition to model-token usage. The normal per-user and global budgets, per-request guard, and economy mode must remain in force.
 - Do not treat the defaults as a hard cap on model-token costs; model input/output costs are accounted separately.
 - Do not enable external-user search until the combined maximum model + search cost is enforced and verified.
 
 ## In scope
 
-- Pin Parallel and set bounded request defaults for result count, context, and tool calls.
+- Pin Parallel Fast and set bounded request defaults for result count, context, and tool calls.
 - Preserve existing privacy settings on every OpenRouter request.
 - Keep content-free usage accounting and sanitized telemetry.
 - Add unit tests for the exact request body, search limits, and accounting reservation/reconciliation behavior.
@@ -62,14 +62,14 @@ Set both `max_uses` and top-level `max_tool_calls` to 2: the former caps search 
 
 ## Acceptance criteria
 
-- [ ] Request explicitly pins Parallel; OpenRouter `auto` routing is not used for Sofi searches.
+- [x] Request explicitly pins Parallel; OpenRouter `auto` routing is not used for Sofi searches.
 - [ ] Sofi explicitly selects Parallel and does not use OpenRouter `auto` routing.
-- [ ] Request carries `engine: "parallel"`, `search_context_size: "medium"`, `max_results: 5`, `max_total_results: 10`, and `max_uses: 2`; no unsupported `mode: "fast"` field is sent.
+- [ ] Request carries `engine: "parallel"`, `mode: "fast"`, `search_context_size: "medium"`, `max_results: 5`, `max_total_results: 10`, and `max_uses: 2`.
 - [ ] Top-level `max_tool_calls` is 2.
 - [ ] Tests verify the exact Parallel engine and bounded request parameters.
 - [ ] Usage accounting reserves costs for two search calls and reconciles actual reported usage where available.
 - [ ] Tests prove that existing per-user/per-request/global budgets still apply.
-- [ ] Live synthetic Russian and Belarusian queries validate relevance, citations, latency, region availability, privacy, and charges across the configured engine list.
+- [ ] Live synthetic Russian and Belarusian queries validate relevance, citations, latency, region availability, privacy, and charges for Parallel Fast.
 - [ ] `AI_WEB_SEARCH_ENABLED=false` remains the external-user setting until search acceptance, billing, privacy, and cost guards are verified.
 - [ ] Typecheck, lint, formatting, tests, production build, and Docker build pass before merge.
 
