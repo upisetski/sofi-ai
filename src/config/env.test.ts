@@ -85,6 +85,16 @@ describe('environment configuration', () => {
     expect(config.AI_ECONOMY_MAX_OUTPUT_TOKENS).toBe(256);
   });
 
+  it('enables web search only when explicitly configured', () => {
+    expect(
+      parseEnv({
+        ...baseEnv,
+        NODE_ENV: 'test',
+        AI_WEB_SEARCH_ENABLED: 'true',
+      }).AI_WEB_SEARCH_ENABLED,
+    ).toBe(true);
+  });
+
   it('allows Railway overrides for model, pricing, and privacy settings', () => {
     const config = parseEnv({
       ...baseEnv,
