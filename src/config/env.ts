@@ -31,7 +31,7 @@ export const envSchema = z
       .default('deny'),
     AI_WEB_SEARCH_ENABLED: z
       .enum(['true', 'false'])
-      .default('true')
+      .default('false')
       .transform((value) => value === 'true'),
     AI_WEB_SEARCH_ENGINE: z
       .enum(['auto', 'native', 'exa', 'parallel', 'perplexity'])

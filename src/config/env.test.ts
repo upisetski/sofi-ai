@@ -66,7 +66,7 @@ describe('environment configuration', () => {
     expect(config.AI_MODEL_CHEAP_TEXT).toBe('openai/gpt-6-luna');
     expect(config.OPENROUTER_REQUIRE_ZDR).toBe(true);
     expect(config.OPENROUTER_DATA_COLLECTION_POLICY).toBe('deny');
-    expect(config.AI_WEB_SEARCH_ENABLED).toBe(true);
+    expect(config.AI_WEB_SEARCH_ENABLED).toBe(false);
     expect(config.AI_WEB_SEARCH_ENGINE).toBe('parallel');
     expect(config.AI_WEB_SEARCH_MAX_RESULTS).toBe(5);
     expect(config.AI_WEB_SEARCH_MAX_TOTAL_RESULTS).toBe(10);
@@ -83,6 +83,16 @@ describe('environment configuration', () => {
     expect(config.AI_GLOBAL_DAILY_BUDGET_USD).toBe(2);
     expect(config.AI_GLOBAL_MONTHLY_BUDGET_USD).toBe(30);
     expect(config.AI_ECONOMY_MAX_OUTPUT_TOKENS).toBe(256);
+  });
+
+  it('enables web search only when explicitly configured', () => {
+    expect(
+      parseEnv({
+        ...baseEnv,
+        NODE_ENV: 'test',
+        AI_WEB_SEARCH_ENABLED: 'true',
+      }).AI_WEB_SEARCH_ENABLED,
+    ).toBe(true);
   });
 
   it('allows Railway overrides for model, pricing, and privacy settings', () => {
