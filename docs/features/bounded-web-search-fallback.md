@@ -11,6 +11,7 @@ Make web-search cost predictable by explicitly pinning Parallel in each Sofi req
 - Sofi explicitly sends `engine: "parallel"` so each search uses Parallel instead of OpenRouter's `auto` behavior (native search when available, otherwise Exa).
 - Sofi applies one bounded request policy: Parallel `fast` mode, medium search context, 5 results per search, at most 10 total results, and no more than 2 search/tool calls per generation. Parallel Fast language availability is not documented, so Russian and Belarusian search quality must be validated before external rollout.
 - Sofi pins Parallel at request time. If Parallel is unavailable or errors, Sofi does not switch to Exa/native or retry with another engine; normal request failure handling applies.
+- Web search is disabled by default and must be explicitly enabled after live search quality, billing, privacy, and cost controls have been accepted.
 
 ## Request policy
 
@@ -39,7 +40,7 @@ Set both `max_uses` and top-level `max_tool_calls` to 2: the former caps search 
 - Preserve existing privacy settings on every OpenRouter request.
 - Keep content-free usage accounting and sanitized telemetry.
 - Add unit tests for the exact request body, search limits, and accounting reservation/reconciliation behavior.
-- Update configuration docs to describe the explicit Parallel request setting.
+- Update configuration docs to describe the explicit Parallel request setting and opt-in search default.
 
 ## Out of scope
 
@@ -51,7 +52,8 @@ Set both `max_uses` and top-level `max_tool_calls` to 2: the former caps search 
 
 ## Requirements
 
-- Search is enabled only when configured on, and the OpenRouter server tool remains the normal search path.
+- Search is disabled unless explicitly enabled in configuration.
+- The OpenRouter server tool remains the normal search path when enabled.
 - The request explicitly sets `engine: "parallel"`; it must not use `auto`, because `auto` can fall back to Exa when native search is unavailable.
 - The application applies the bounded request policy above on every search-enabled request.
 - No more than two server-tool calls are allowed for one generation.
@@ -62,8 +64,8 @@ Set both `max_uses` and top-level `max_tool_calls` to 2: the former caps search 
 
 ## Acceptance criteria
 
+- [x] Web search is disabled by default and must be explicitly enabled.
 - [x] Request explicitly pins Parallel; OpenRouter `auto` routing is not used for Sofi searches.
-- [ ] Sofi explicitly selects Parallel and does not use OpenRouter `auto` routing.
 - [ ] Request carries `engine: "parallel"`, `mode: "fast"`, `search_context_size: "medium"`, `max_results: 5`, `max_total_results: 10`, and `max_uses: 2`.
 - [ ] Top-level `max_tool_calls` is 2.
 - [ ] Tests verify the exact Parallel engine and bounded request parameters.
