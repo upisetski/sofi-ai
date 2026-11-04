@@ -35,6 +35,7 @@ const aiRouter = env.AI_ENABLED
         models: { cheap_text: env.AI_MODEL_CHEAP_TEXT },
         maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
         requestTimeoutMs: env.AI_REQUEST_TIMEOUT_MS,
+        webSearchEnabled: env.AI_WEB_SEARCH_ENABLED,
       },
       createOpenRouterClient({
         ...(env.OPENROUTER_API_KEY ? { apiKey: env.OPENROUTER_API_KEY } : {}),
