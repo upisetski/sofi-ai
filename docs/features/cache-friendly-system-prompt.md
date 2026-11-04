@@ -1,5 +1,7 @@
 # Feature: Cache-friendly date-aware system prompt
 
+> Update: the date is now the Europe/Minsk calendar date and the prompt layout was revised; see [System prompt quality improvements](system-prompt-quality.md).
+
 ## Goal
 
 Give Sofi an explicit current date for date-relative questions while keeping the reusable system-prompt prefix stable across locales and dates.
